@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { canvasToBlob, generateOrthographicCanvases, type ProjectionCanvases } from '@/components/building/projectionGenerator';
+import { generateOrthographicCanvases, type ProjectionCanvases } from '@/components/building/projectionGenerator';
 import { createModelData } from '@/components/building/generators';
 import { loadBuildingTextures } from '@/components/building/textureLoader';
 
@@ -265,19 +265,6 @@ export default function GeneratedBuildingModel({
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
 
-  const handleDownloadProjection = async (key: keyof ProjectionCanvases) => {
-    if (!projections) return;
-    const blob = await canvasToBlob(projections[key]);
-    if (!blob) return;
-
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = objectUrl;
-    link.download = `${key}-orthographic.png`;
-    link.click();
-    URL.revokeObjectURL(objectUrl);
-  };
-
   return (
     <div className="relative w-full overflow-hidden rounded-2xl bg-slate-200">
       <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
@@ -301,15 +288,6 @@ export default function GeneratedBuildingModel({
           className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${autoRotate ? 'bg-blue-600 text-white' : 'bg-white/90 text-slate-900'}`}
         >
           Auto Rotate
-        </button>
-        <button type="button" onClick={() => handleDownloadProjection('top')} className="rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-900">
-          Export Top PNG
-        </button>
-        <button type="button" onClick={() => handleDownloadProjection('front')} className="rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-900">
-          Export Front PNG
-        </button>
-        <button type="button" onClick={() => handleDownloadProjection('left')} className="rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-900">
-          Export Left PNG
         </button>
       </div>
       <div ref={containerRef} className="h-[700px] w-full" />
