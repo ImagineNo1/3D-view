@@ -22,31 +22,16 @@ Production-ready Next.js App Router + MongoDB platform for 3D real estate showca
   - QR display + download.
 - i18n foundation for English + Persian (RTL) with persistent language switcher.
 
-## Admin setup (manual one-time)
+## Admin setup
 
 1. Set env:
    - `MONGODB_URI`
    - `AUTH_SECRET`
-2. Generate hash in Node REPL:
+2. On the first admin login request, if there are no users in MongoDB, the app auto-creates this default admin:
+   - `email`: `mohammadrezvani2002@gmail.com`
+   - `password`: `110682`
 
-```js
-const crypto = require('crypto');
-const salt = crypto.randomBytes(16).toString('hex');
-const hash = crypto.scryptSync('YOUR_PASSWORD', salt, 64).toString('hex');
-console.log(`${salt}:${hash}`);
-```
-
-3. Insert a single admin user in MongoDB:
-
-```json
-{
-  "email": "admin@example.com",
-  "passwordHash": "<salt:hash>",
-  "role": "admin"
-}
-```
-
-Then login at `/admin/login`.
+Then login at `/admin/login` and change the credentials in DB if needed.
 
 ## Scripts
 
