@@ -1,13 +1,18 @@
 import { notFound } from 'next/navigation';
 import { ImageGallery } from '@/components/ImageGallery';
 import { ThreeModelViewer } from '@/components/ThreeModelViewer';
-import { getBaseUrl } from '@/lib/url';
-import type { Property } from '@/types/property';
+import { connectToDatabase } from '@/lib/mongodb';
+import Property from '@/models/Property';
+import type { Property as PropertyType } from '@/types/property';
 
-async function fetchProperty(slug: string): Promise<Property | null> {
-  const response = await fetch(`${getBaseUrl()}/api/properties/${slug}`, { cache: 'no-store' });
-  if (!response.ok) return null;
-  return response.json();
+async function fetchProperty(slug: string): Promise<PropertyType | null> {
+  try {
+    await connectToDatabase();
+    const property = await Property.findOne({ slug }).lean<PropertyType | null>();
+    return property;
+  } catch {
+    return null;
+  }
 }
 
 export default async function PropertyPage({ params }: { params: Promise<{ slug: string }> }) {
