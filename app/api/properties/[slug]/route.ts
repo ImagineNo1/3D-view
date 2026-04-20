@@ -4,13 +4,6 @@ import Property from '@/models/Property';
 import type { PropertyPayload } from '@/types/property';
 import { parseGoogleMapsUrl } from '@/lib/maps';
 
-function sanitizeBoundary(boundary: PropertyPayload['boundary'] | undefined) {
-  return (boundary || []).filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng));
-}
-
-function sanitizeHotspots(hotspots: PropertyPayload['hotspots'] | undefined) {
-  return (hotspots || []).filter((item) => item?.label?.trim() && item?.description?.trim() && Number.isFinite(item?.x) && Number.isFinite(item?.y));
-}
 
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -47,8 +40,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           },
           latitude: mapsCoordinates?.lat,
           longitude: mapsCoordinates?.lng,
-          boundary: sanitizeBoundary(payload.boundary),
-          hotspots: sanitizeHotspots(payload.hotspots)
         }
       },
       { new: true }

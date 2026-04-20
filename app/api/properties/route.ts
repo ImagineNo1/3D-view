@@ -14,13 +14,6 @@ function validatePayload(payload: Partial<PropertyPayload>) {
   return null;
 }
 
-function sanitizeBoundary(boundary: PropertyPayload['boundary'] | undefined) {
-  return (boundary || []).filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng));
-}
-
-function sanitizeHotspots(hotspots: PropertyPayload['hotspots'] | undefined) {
-  return (hotspots || []).filter((item) => item?.label?.trim() && item?.description?.trim() && Number.isFinite(item?.x) && Number.isFinite(item?.y));
-}
 
 export async function GET() {
   try {
@@ -59,8 +52,6 @@ export async function POST(request: NextRequest) {
       },
       latitude,
       longitude,
-      boundary: sanitizeBoundary(payload.boundary),
-      hotspots: sanitizeHotspots(payload.hotspots),
       slug,
       qrCodeDataUrl,
       publicUrl

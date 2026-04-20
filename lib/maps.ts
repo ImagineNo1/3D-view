@@ -55,12 +55,3 @@ export function getSatelliteImage(lat?: number, lng?: number, zoom = 19): string
 
   return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${GOOGLE_STATIC_SIZE}&maptype=satellite&scale=2&key=${apiKey}`;
 }
-
-export function parseJsonArray<T>(value: string, fallback: T[]): T[] {
-  try {
-    const parsed = JSON.parse(value) as T[];
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
