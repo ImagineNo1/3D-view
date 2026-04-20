@@ -4,18 +4,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-const DEFAULT_RATIO = 0.6;
+const WIDTH_TO_DEPTH_RATIO = 0.6;
 
 function toPositiveNumber(value: unknown, fallback: number) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-function computeDimensions(buildingArea: unknown, widthToDepthRatio = DEFAULT_RATIO) {
-  const area = toPositiveNumber(buildingArea, 100);
-  const ratio = toPositiveNumber(widthToDepthRatio, DEFAULT_RATIO);
+function computeDimensions(buildingArea: unknown, widthToDepthRatio = WIDTH_TO_DEPTH_RATIO) {
+  const area = toPositiveNumber(buildingArea, 900);
+  const ratio = toPositiveNumber(widthToDepthRatio, WIDTH_TO_DEPTH_RATIO);
   const depth = Math.sqrt(area / ratio);
-  const width = ratio * depth;
+  const width = depth * ratio;
   return { width, depth };
 }
 
@@ -27,19 +27,19 @@ function normalizeRotationY(rotation: unknown) {
 
 function createCoordinateLabelSprite(text: string) {
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 128;
+  canvas.width = 768;
+  canvas.height = 160;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.9)';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.95)';
+  ctx.lineWidth = 5;
+  ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
 
   ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 34px Inter, Arial, sans-serif';
+  ctx.font = 'bold 36px Inter, Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -47,10 +47,28 @@ function createCoordinateLabelSprite(text: string) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
 
-  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
-  const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(8, 2, 1);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+  sprite.scale.set(12, 2.4, 1);
   return sprite;
+}
+
+function loadTexture(loader: any, url?: string | null): Promise<any> {
+  if (!url) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    loader.load(
+      url,
+      (texture: any) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        resolve(texture);
+      },
+      undefined,
+      () => resolve(null)
+    );
+  });
 }
 
 type GeneratedBuildingModelProps = {
@@ -85,40 +103,48 @@ export default function GeneratedBuildingModel({
   const [autoRotate, setAutoRotate] = useState(false);
 
   const model = useMemo(() => {
-    const safeFloorCount = Math.max(1, Math.round(toPositiveNumber(floorCount, 1)));
+    const safeFloorCount = Math.max(1, Math.round(toPositiveNumber(floorCount, 6)));
     const safeBuildingHeight = toPositiveNumber(buildingHeight, safeFloorCount * 3.2);
     const safeFloorHeight = toPositiveNumber(floorHeight, safeBuildingHeight / safeFloorCount);
-    const normalizedHeight = safeFloorHeight * safeFloorCount;
-    const { width, depth } = computeDimensions(buildingArea, DEFAULT_RATIO);
+    const finalHeight = safeFloorHeight * safeFloorCount;
+    const { width, depth } = computeDimensions(buildingArea);
+
+    const facadeFront = facadeImages[0] ?? null;
+    const facadeRight = facadeImages[1] ?? facadeFront;
+    const facadeBack = facadeImages[2] ?? facadeFront;
+    const facadeLeft = facadeImages[3] ?? facadeRight ?? facadeFront;
 
     return {
       width,
       depth,
-      floorCount: safeFloorCount,
-      floorHeight: safeFloorHeight,
-      buildingHeight: normalizedHeight,
+      buildingHeight: finalHeight,
       rotationY: normalizeRotationY(rotation),
       lat: Number.isFinite(Number(latitude)) ? Number(latitude) : 0,
       lon: Number.isFinite(Number(longitude)) ? Number(longitude) : 0,
-      facadeUrl: facadeImages?.[0] || null
+      aerialImage: aerialImage || null,
+      facadeFront,
+      facadeBack,
+      facadeLeft,
+      facadeRight
     };
-  }, [buildingArea, buildingHeight, floorCount, floorHeight, latitude, longitude, facadeImages, rotation]);
+  }, [buildingArea, buildingHeight, floorCount, floorHeight, latitude, longitude, facadeImages, aerialImage, rotation]);
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
 
     const container = containerRef.current;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#e2e8f0');
+    scene.background = new THREE.Color('#dfe6f1');
 
-    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 2000);
-    camera.position.set(model.width * 1.6, model.buildingHeight * 0.8, model.depth * 1.6);
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 6000);
+    camera.position.set(model.width * 1.8, Math.max(model.buildingHeight * 0.9, 16), model.depth * 1.8);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(container.clientWidth || 1, container.clientHeight || 1);
+    renderer.setSize(Math.max(container.clientWidth, 1), Math.max(container.clientHeight, 1));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -126,91 +152,89 @@ export default function GeneratedBuildingModel({
     cameraRef.current = camera;
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.target.set(0, model.buildingHeight * 0.35, 0);
+    controls.minDistance = Math.max(model.width, model.depth) * 0.4;
+    controls.maxDistance = Math.max(model.width, model.depth) * 12;
+    controls.target.set(0, model.buildingHeight * 0.4, 0);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.15);
-    directionalLight.position.set(model.width * 1.5, model.buildingHeight * 1.8, model.depth * 1.2);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.25);
+    directionalLight.position.set(model.width * 1.7, model.buildingHeight * 2.2, model.depth * 1.5);
     directionalLight.castShadow = true;
     directionalLight.shadow.mapSize.set(2048, 2048);
     scene.add(ambientLight, directionalLight);
 
-    const groundSize = Math.max(model.width, model.depth) * 8;
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(groundSize, groundSize),
-      new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.95, metalness: 0.02 })
-    );
+    const groundSize = Math.max(model.width, model.depth) * 10;
+    const groundMaterial = new THREE.MeshStandardMaterial({ color: '#bfcad9', roughness: 0.92, metalness: 0.02 });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(groundSize, groundSize), groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const buildingGroup = new THREE.Group();
+    const topMaterial = new THREE.MeshStandardMaterial({ color: '#9ca3af', roughness: 0.82, metalness: 0.04 });
+    const bottomMaterial = new THREE.MeshStandardMaterial({ color: '#6b7280', roughness: 0.95, metalness: 0.02 });
+    const rightMaterial = new THREE.MeshStandardMaterial({ color: '#d1d5db', roughness: 0.84, metalness: 0.06 });
+    const leftMaterial = new THREE.MeshStandardMaterial({ color: '#d1d5db', roughness: 0.84, metalness: 0.06 });
+    const frontMaterial = new THREE.MeshStandardMaterial({ color: '#e5e7eb', roughness: 0.82, metalness: 0.06 });
+    const backMaterial = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.86, metalness: 0.05 });
 
-    const floorLineMaterial = new THREE.LineBasicMaterial({ color: 0x94a3b8 });
-    for (let i = 1; i < model.floorCount; i += 1) {
-      const y = i * model.floorHeight;
-      const floorRect = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-model.width / 2, y, -model.depth / 2),
-        new THREE.Vector3(model.width / 2, y, -model.depth / 2),
-        new THREE.Vector3(model.width / 2, y, model.depth / 2),
-        new THREE.Vector3(-model.width / 2, y, model.depth / 2),
-        new THREE.Vector3(-model.width / 2, y, -model.depth / 2)
-      ]);
-      buildingGroup.add(new THREE.Line(floorRect, floorLineMaterial));
-    }
+    const materials: any[] = [rightMaterial, leftMaterial, topMaterial, bottomMaterial, frontMaterial, backMaterial];
 
     const buildingGeometry = new THREE.BoxGeometry(model.width, model.buildingHeight, model.depth);
     buildingGeometry.translate(0, model.buildingHeight / 2, 0);
 
-    const sideMaterial = new THREE.MeshStandardMaterial({ color: '#d1d5db', roughness: 0.88, metalness: 0.08 });
-    const roofMaterial = new THREE.MeshStandardMaterial({ color: '#9ca3af', roughness: 0.9, metalness: 0.04 });
-    const bottomMaterial = new THREE.MeshStandardMaterial({ color: '#6b7280', roughness: 0.95, metalness: 0.03 });
-    const frontMaterial = new THREE.MeshStandardMaterial({ color: '#e5e7eb', roughness: 0.86, metalness: 0.06 });
-    const backMaterial = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, metalness: 0.05 });
+    const building = new THREE.Mesh(buildingGeometry, materials);
+    building.castShadow = true;
+    building.receiveShadow = true;
+    building.rotation.y = model.rotationY;
+    scene.add(building);
 
-    const materials = [sideMaterial, sideMaterial, roofMaterial, bottomMaterial, frontMaterial, backMaterial];
-
-    const buildingMesh = new THREE.Mesh(buildingGeometry, materials);
-    buildingMesh.castShadow = true;
-    buildingMesh.receiveShadow = true;
-    buildingGroup.add(buildingMesh);
-
-    buildingGroup.rotation.y = model.rotationY;
-    scene.add(buildingGroup);
-
-    const coordMarker = new THREE.Mesh(
-      new THREE.SphereGeometry(Math.max(0.4, model.width * 0.03), 24, 24),
-      new THREE.MeshStandardMaterial({ color: '#ef4444', emissive: '#7f1d1d', emissiveIntensity: 0.3 })
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(Math.max(0.45, model.width * 0.03), 24, 24),
+      new THREE.MeshStandardMaterial({ color: '#ef4444', emissive: '#7f1d1d', emissiveIntensity: 0.35 })
     );
-    coordMarker.position.set(0, model.buildingHeight + 1.4, 0);
-    scene.add(coordMarker);
+    marker.position.set(0, model.buildingHeight + 1.4, 0);
+    scene.add(marker);
 
-    const labelText = `Lat ${model.lat.toFixed(6)}, Lon ${model.lon.toFixed(6)}`;
-    const labelSprite = createCoordinateLabelSprite(labelText);
-    if (labelSprite) {
-      labelSprite.position.set(0, model.buildingHeight + 3.1, 0);
-      scene.add(labelSprite);
+    const label = createCoordinateLabelSprite(`Lat ${model.lat.toFixed(6)}, Lon ${model.lon.toFixed(6)}`);
+    if (label) {
+      label.position.set(0, model.buildingHeight + 3.2, 0);
+      scene.add(label);
     }
 
-    if (model.facadeUrl) {
-      const loader = new THREE.TextureLoader();
-      loader.load(
-        model.facadeUrl,
-        (texture: any) => {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.wrapS = THREE.ClampToEdgeWrapping;
-          texture.wrapT = THREE.ClampToEdgeWrapping;
-          texture.minFilter = THREE.LinearMipmapLinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          frontMaterial.map = texture;
-          frontMaterial.needsUpdate = true;
-        },
-        undefined,
-        () => {
-          frontMaterial.color.set('#d1d5db');
-        }
-      );
-    }
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.setCrossOrigin('anonymous');
+
+    Promise.all([
+      loadTexture(textureLoader, model.aerialImage),
+      loadTexture(textureLoader, model.facadeRight),
+      loadTexture(textureLoader, model.facadeLeft),
+      loadTexture(textureLoader, model.facadeFront),
+      loadTexture(textureLoader, model.facadeBack)
+    ]).then(([groundTexture, rightTexture, leftTexture, frontTexture, backTexture]) => {
+      if (groundTexture) {
+        groundTexture.wrapS = THREE.ClampToEdgeWrapping;
+        groundTexture.wrapT = THREE.ClampToEdgeWrapping;
+        groundMaterial.map = groundTexture;
+        groundMaterial.needsUpdate = true;
+      }
+
+      if (rightTexture) {
+        rightMaterial.map = rightTexture;
+        rightMaterial.needsUpdate = true;
+      }
+      if (leftTexture) {
+        leftMaterial.map = leftTexture;
+        leftMaterial.needsUpdate = true;
+      }
+      if (frontTexture) {
+        frontMaterial.map = frontTexture;
+        frontMaterial.needsUpdate = true;
+      }
+      if (backTexture) {
+        backMaterial.map = backTexture;
+        backMaterial.needsUpdate = true;
+      }
+    });
 
     const onResize = () => {
       const width = Math.max(container.clientWidth, 1);
@@ -244,15 +268,14 @@ export default function GeneratedBuildingModel({
         if (mesh.material) {
           const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           mats.forEach((mat: any) => {
-            if (mat.map) mat.map.dispose();
-            mat.dispose();
+            const standardMat = mat as any;
+            if (standardMat.map) standardMat.map.dispose();
+            standardMat.dispose();
           });
         }
       });
       renderer.dispose();
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
+      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
     };
   }, [model]);
 
@@ -260,21 +283,21 @@ export default function GeneratedBuildingModel({
     viewModeRef.current = viewMode;
     const controls = controlsRef.current;
     const camera = cameraRef.current;
-    if (!controls || !camera) return;
+    if (!controls || !camera || !(camera instanceof THREE.PerspectiveCamera)) return;
 
     if (viewMode === '2d') {
-      camera.position.set(0, Math.max(model.buildingHeight * 2.6, 35), 0.01);
+      camera.position.set(0, Math.max(model.buildingHeight * 2.8, 40), 0.001);
       controls.enableRotate = false;
       controls.minPolarAngle = 0;
       controls.maxPolarAngle = 0;
     } else {
-      camera.position.set(model.width * 1.6, model.buildingHeight * 0.8, model.depth * 1.6);
+      camera.position.set(model.width * 1.8, Math.max(model.buildingHeight * 0.9, 16), model.depth * 1.8);
       controls.enableRotate = true;
-      controls.minPolarAngle = 0.1;
-      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.minPolarAngle = 0.05;
+      controls.maxPolarAngle = Math.PI / 2.02;
     }
 
-    controls.target.set(0, model.buildingHeight * 0.35, 0);
+    controls.target.set(0, model.buildingHeight * 0.4, 0);
     controls.update();
   }, [model.buildingHeight, model.depth, model.width, viewMode]);
 
