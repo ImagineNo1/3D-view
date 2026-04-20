@@ -9,7 +9,6 @@ import type { PropertyPayload } from '@/types/property';
 function validatePayload(payload: Partial<PropertyPayload>) {
   if (!payload.title?.trim()) return 'Title is required';
   if (!payload.description?.trim()) return 'Description is required';
-  if (!payload.modelUrl?.trim()) return '3D model URL is required';
   return null;
 }
 
@@ -42,9 +41,10 @@ export async function POST(request: NextRequest) {
     const property = await Property.create({
       title: payload.title!.trim(),
       description: payload.description!.trim(),
-      images: (payload.images || []).filter(Boolean),
-      modelUrl: payload.modelUrl!.trim(),
+      images: (payload.images || []).map((url) => url.trim()).filter(Boolean),
       location: payload.location?.trim(),
+      googleMapsUrl: payload.googleMapsUrl?.trim(),
+      satelliteImageUrl: payload.satelliteImageUrl?.trim(),
       slug,
       qrCodeDataUrl,
       publicUrl

@@ -7,7 +7,8 @@ Production-ready MVP built with **Next.js App Router**, **TypeScript**, **MongoD
 - Admin dashboard (`/admin`)
   - Create properties
   - Enter image URLs (supports drag/drop text)
-  - Enter GLB/GLTF model URL
+  - Enter unlimited image URLs
+  - Add optional satellite image URL and Google Maps URL
   - View property list
   - Copy public link
   - Download QR code
@@ -15,7 +16,9 @@ Production-ready MVP built with **Next.js App Router**, **TypeScript**, **MongoD
 - Public property page (`/property/[slug]`)
   - Title / description / location
   - Image gallery
-  - Interactive 3D model viewer (rotate/zoom/pan)
+  - Fake 3D terrain viewer based on satellite texture (rotate/zoom/pan)
+  - Google Maps embed + open link
+  - QR code display + download
 - Backend APIs
   - `POST /api/properties`
   - `GET /api/properties`
@@ -40,7 +43,9 @@ Production-ready MVP built with **Next.js App Router**, **TypeScript**, **MongoD
 │   ├── ImageUrlInput.tsx
 │   ├── PropertyForm.tsx
 │   ├── PropertyList.tsx
-│   └── ThreeModelViewer.tsx
+│   ├── ThreeViewer.tsx
+│   ├── MapEmbed.tsx
+│   └── CopyLinkButton.tsx
 ├── lib/
 │   ├── mongodb.ts
 │   ├── slug.ts

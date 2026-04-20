@@ -12,8 +12,9 @@ export function PropertyForm({ onCreated }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [modelUrl, setModelUrl] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
+  const [satelliteImageUrl, setSatelliteImageUrl] = useState('');
+  const [images, setImages] = useState<string[]>(['']);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -21,8 +22,9 @@ export function PropertyForm({ onCreated }: Props) {
     setTitle('');
     setDescription('');
     setLocation('');
-    setModelUrl('');
-    setImages([]);
+    setGoogleMapsUrl('');
+    setSatelliteImageUrl('');
+    setImages(['']);
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -34,7 +36,14 @@ export function PropertyForm({ onCreated }: Props) {
       const response = await fetch('/api/properties', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, location, modelUrl, images })
+        body: JSON.stringify({
+          title,
+          description,
+          location,
+          googleMapsUrl,
+          satelliteImageUrl,
+          images: images.map((url) => url.trim()).filter(Boolean)
+        })
       });
 
       const data = await response.json();
@@ -85,14 +94,24 @@ export function PropertyForm({ onCreated }: Props) {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">3D Model URL (GLB/GLTF)</label>
+        <label className="mb-1 block text-sm font-medium text-slate-700">Google Maps URL (optional)</label>
         <input
-          required
           type="url"
-          value={modelUrl}
-          onChange={(event) => setModelUrl(event.target.value)}
+          value={googleMapsUrl}
+          onChange={(event) => setGoogleMapsUrl(event.target.value)}
           className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
-          placeholder="https://example.com/model.glb"
+          placeholder="https://maps.google.com/..."
+        />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">Satellite image URL for 3D plane (optional)</label>
+        <input
+          type="url"
+          value={satelliteImageUrl}
+          onChange={(event) => setSatelliteImageUrl(event.target.value)}
+          className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
+          placeholder="https://example.com/satellite.jpg"
         />
       </div>
 

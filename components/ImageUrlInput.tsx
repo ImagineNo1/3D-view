@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 type Props = {
   value: string[];
@@ -8,65 +8,55 @@ type Props = {
 };
 
 export function ImageUrlInput({ value, onChange }: Props) {
-  const [text, setText] = useState('');
+  const normalized = useMemo(() => (value.length ? value : ['']), [value]);
 
-  const normalized = useMemo(() => value.filter(Boolean), [value]);
-
-  const addUrls = (raw: string) => {
-    const urls = raw
-      .split(/\n|,/) 
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-    if (!urls.length) return;
-    onChange(Array.from(new Set([...normalized, ...urls])));
-    setText('');
+  const updateAt = (index: number, nextValue: string) => {
+    const next = [...normalized];
+    next[index] = nextValue;
+    onChange(next);
   };
+
+  const removeAt = (index: number) => {
+    const next = normalized.filter((_, idx) => idx !== index);
+    onChange(next.length ? next : ['']);
+  };
+
+  const addField = () => onChange([...normalized, '']);
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-slate-700">Image URLs</label>
-      <div
-        className="rounded-md border-2 border-dashed border-slate-300 bg-white p-3"
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
-          event.preventDefault();
-          const droppedText = event.dataTransfer.getData('text');
-          addUrls(droppedText);
-        }}
-      >
-        <textarea
-          placeholder="Paste one or many image URLs (comma or newline separated)"
-          className="h-24 w-full rounded-md border border-slate-300 p-2 text-sm outline-none focus:ring-2 focus:ring-slate-400"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-        />
+      <div className="flex items-center justify-between">
+        <label className="block text-sm font-medium text-slate-700">Image URLs</label>
         <button
           type="button"
-          onClick={() => addUrls(text)}
-          className="mt-2 rounded-md bg-slate-800 px-3 py-2 text-sm text-white hover:bg-slate-700"
+          onClick={addField}
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
         >
-          Add URLs
+          + Add image
         </button>
-        <p className="mt-2 text-xs text-slate-500">Bonus: Drag and drop a URL snippet directly into this box.</p>
       </div>
 
-      {normalized.length > 0 && (
-        <ul className="space-y-2">
-          {normalized.map((url) => (
-            <li key={url} className="flex items-center justify-between rounded-md bg-slate-100 p-2 text-sm">
-              <span className="mr-2 truncate">{url}</span>
-              <button
-                type="button"
-                onClick={() => onChange(normalized.filter((item) => item !== url))}
-                className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="space-y-2">
+        {normalized.map((url, index) => (
+          <div key={`image-input-${index}`} className="flex gap-2">
+            <input
+              type="url"
+              value={url}
+              onChange={(event) => updateAt(index, event.target.value)}
+              placeholder={`https://example.com/image-${index + 1}.jpg`}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
+            />
+            <button
+              type="button"
+              onClick={() => removeAt(index)}
+              className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-slate-500">Add as many images as needed. Empty fields are ignored on save.</p>
     </div>
   );
 }

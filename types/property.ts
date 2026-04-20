@@ -2,8 +2,9 @@ export type PropertyPayload = {
   title: string;
   description: string;
   images: string[];
-  modelUrl: string;
   location?: string;
+  googleMapsUrl?: string;
+  satelliteImageUrl?: string;
 };
 
 export type Property = PropertyPayload & {
