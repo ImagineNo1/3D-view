@@ -85,6 +85,7 @@ async function uploadImageWithProgress(
 }
 
 export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Props) {
+  const existingFacades = editing?.images.gallery || [];
   const { t } = useLanguage();
   const [title, setTitle] = useState(editing?.title || '');
   const [description, setDescription] = useState(editing?.description || '');
@@ -94,7 +95,10 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [floorCount, setFloorCount] = useState(editing?.floorCount?.toString() || '');
   const [floorHeight, setFloorHeight] = useState(editing?.floorHeight?.toString() || '');
   const [rotation, setRotation] = useState(editing?.rotation?.toString() || '');
-  const [galleryImages, setGalleryImages] = useState<UploadItem[]>(normalizeExistingImages(editing?.images.gallery || []));
+  const [facadeFrontImages, setFacadeFrontImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[0] ? [existingFacades[0]] : []));
+  const [facadeBackImages, setFacadeBackImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[1] ? [existingFacades[1]] : []));
+  const [facadeLeftImages, setFacadeLeftImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[2] ? [existingFacades[2]] : []));
+  const [facadeRightImages, setFacadeRightImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[3] ? [existingFacades[3]] : []));
   const [aerialImages, setAerialImages] = useState<UploadItem[]>(normalizeExistingImages(editing?.images.aerial || []));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -155,7 +159,19 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
     setError(null);
 
     try {
-      const [gallery, aerial] = await Promise.all([uploadBatch('gallery', galleryImages), uploadBatch('aerial', aerialImages)]);
+      const [facadeFront, facadeBack, facadeLeft, facadeRight, aerial] = await Promise.all([
+        uploadBatch('gallery', facadeFrontImages),
+        uploadBatch('gallery', facadeBackImages),
+        uploadBatch('gallery', facadeLeftImages),
+        uploadBatch('gallery', facadeRightImages),
+        uploadBatch('aerial', aerialImages)
+      ]);
+      const gallery = [
+        facadeFront[0] ?? '',
+        facadeBack[0] ?? facadeFront[0] ?? '',
+        facadeLeft[0] ?? facadeFront[0] ?? '',
+        facadeRight[0] ?? facadeFront[0] ?? ''
+      ].filter(Boolean);
 
       const response = await fetch(editing ? `/api/properties/${editing.slug}` : '/api/properties', {
         method: editing ? 'PUT' : 'POST',
@@ -222,15 +238,48 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
 
       <div className="grid gap-4 xl:grid-cols-2">
         <ImageUploader
-          label={t.admin.gallery}
-          helperText={t.admin.uploadHintGallery}
-          value={galleryImages}
-          onChange={setGalleryImages}
+          label="Facade Front"
+          helperText="Upload front facade image"
+          value={facadeFrontImages}
+          onChange={setFacadeFrontImages}
           progressById={progressById}
           statusById={statusById}
           errorById={errorById}
           onUrlValidationError={setError}
-          multiple
+          multiple={false}
+        />
+        <ImageUploader
+          label="Facade Back"
+          helperText="Upload back facade image"
+          value={facadeBackImages}
+          onChange={setFacadeBackImages}
+          progressById={progressById}
+          statusById={statusById}
+          errorById={errorById}
+          onUrlValidationError={setError}
+          multiple={false}
+        />
+        <ImageUploader
+          label="Facade Left"
+          helperText="Upload left facade image"
+          value={facadeLeftImages}
+          onChange={setFacadeLeftImages}
+          progressById={progressById}
+          statusById={statusById}
+          errorById={errorById}
+          onUrlValidationError={setError}
+          multiple={false}
+        />
+        <ImageUploader
+          label="Facade Right"
+          helperText="Upload right facade image"
+          value={facadeRightImages}
+          onChange={setFacadeRightImages}
+          progressById={progressById}
+          statusById={statusById}
+          errorById={errorById}
+          onUrlValidationError={setError}
+          multiple={false}
         />
         <ImageUploader
           label={t.admin.aerial}

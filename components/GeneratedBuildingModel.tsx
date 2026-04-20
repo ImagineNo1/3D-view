@@ -3,27 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-
-const WIDTH_TO_DEPTH_RATIO = 0.6;
-
-function toPositiveNumber(value: unknown, fallback: number) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-function computeDimensions(buildingArea: unknown, widthToDepthRatio = WIDTH_TO_DEPTH_RATIO) {
-  const area = toPositiveNumber(buildingArea, 900);
-  const ratio = toPositiveNumber(widthToDepthRatio, WIDTH_TO_DEPTH_RATIO);
-  const depth = Math.sqrt(area / ratio);
-  const width = depth * ratio;
-  return { width, depth };
-}
-
-function normalizeRotationY(rotation: unknown) {
-  const raw = Number(rotation);
-  if (!Number.isFinite(raw)) return 0;
-  return Math.abs(raw) > Math.PI * 2 ? THREE.MathUtils.degToRad(raw) : raw;
-}
+import { canvasToBlob, generateOrthographicCanvases, type ProjectionCanvases } from '@/components/building/projectionGenerator';
+import { createModelData } from '@/components/building/generators';
+import { loadBuildingTextures } from '@/components/building/textureLoader';
 
 function createCoordinateLabelSprite(text: string) {
   const canvas = document.createElement('canvas');
@@ -50,25 +32,6 @@ function createCoordinateLabelSprite(text: string) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
   sprite.scale.set(12, 2.4, 1);
   return sprite;
-}
-
-function loadTexture(loader: any, url?: string | null): Promise<any> {
-  if (!url) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    loader.load(
-      url,
-      (texture: any) => {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.wrapS = THREE.ClampToEdgeWrapping;
-        texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        resolve(texture);
-      },
-      undefined,
-      () => resolve(null)
-    );
-  });
 }
 
 type GeneratedBuildingModelProps = {
@@ -101,33 +64,36 @@ export default function GeneratedBuildingModel({
   const autoRotateRef = useRef(false);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
   const [autoRotate, setAutoRotate] = useState(false);
+  const [projections, setProjections] = useState<ProjectionCanvases | null>(null);
 
-  const model = useMemo(() => {
-    const safeFloorCount = Math.max(1, Math.round(toPositiveNumber(floorCount, 6)));
-    const safeBuildingHeight = toPositiveNumber(buildingHeight, safeFloorCount * 3.2);
-    const safeFloorHeight = toPositiveNumber(floorHeight, safeBuildingHeight / safeFloorCount);
-    const finalHeight = safeFloorHeight * safeFloorCount;
-    const { width, depth } = computeDimensions(buildingArea);
+  const model = useMemo(
+    () =>
+      createModelData({
+        buildingArea,
+        buildingHeight,
+        floorCount,
+        floorHeight,
+        latitude,
+        longitude,
+        facadeImages,
+        aerialImage,
+        rotation
+      }),
+    [buildingArea, buildingHeight, floorCount, floorHeight, latitude, longitude, facadeImages, aerialImage, rotation]
+  );
 
-    const facadeFront = facadeImages[0] ?? null;
-    const facadeRight = facadeImages[1] ?? facadeFront;
-    const facadeBack = facadeImages[2] ?? facadeFront;
-    const facadeLeft = facadeImages[3] ?? facadeRight ?? facadeFront;
+  useEffect(() => {
+    let active = true;
 
-    return {
-      width,
-      depth,
-      buildingHeight: finalHeight,
-      rotationY: normalizeRotationY(rotation),
-      lat: Number.isFinite(Number(latitude)) ? Number(latitude) : 0,
-      lon: Number.isFinite(Number(longitude)) ? Number(longitude) : 0,
-      aerialImage: aerialImage || null,
-      facadeFront,
-      facadeBack,
-      facadeLeft,
-      facadeRight
+    generateOrthographicCanvases(model).then((result) => {
+      if (!active) return;
+      setProjections(result);
+    });
+
+    return () => {
+      active = false;
     };
-  }, [buildingArea, buildingHeight, floorCount, floorHeight, latitude, longitude, facadeImages, aerialImage, rotation]);
+  }, [model]);
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
@@ -204,13 +170,7 @@ export default function GeneratedBuildingModel({
     const textureLoader = new THREE.TextureLoader();
     textureLoader.setCrossOrigin('anonymous');
 
-    Promise.all([
-      loadTexture(textureLoader, model.aerialImage),
-      loadTexture(textureLoader, model.facadeRight),
-      loadTexture(textureLoader, model.facadeLeft),
-      loadTexture(textureLoader, model.facadeFront),
-      loadTexture(textureLoader, model.facadeBack)
-    ]).then(([groundTexture, rightTexture, leftTexture, frontTexture, backTexture]) => {
+    loadBuildingTextures(textureLoader, model.assets).then(({ groundTexture, rightTexture, leftTexture, frontTexture, backTexture }) => {
       if (groundTexture) {
         groundTexture.wrapS = THREE.ClampToEdgeWrapping;
         groundTexture.wrapT = THREE.ClampToEdgeWrapping;
@@ -283,7 +243,7 @@ export default function GeneratedBuildingModel({
     viewModeRef.current = viewMode;
     const controls = controlsRef.current;
     const camera = cameraRef.current;
-    if (!controls || !camera || !(camera instanceof THREE.PerspectiveCamera)) return;
+    if (!controls || !camera) return;
 
     if (viewMode === '2d') {
       camera.position.set(0, Math.max(model.buildingHeight * 2.8, 40), 0.001);
@@ -305,9 +265,22 @@ export default function GeneratedBuildingModel({
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
 
+  const handleDownloadProjection = async (key: keyof ProjectionCanvases) => {
+    if (!projections) return;
+    const blob = await canvasToBlob(projections[key]);
+    if (!blob) return;
+
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = `${key}-orthographic.png`;
+    link.click();
+    URL.revokeObjectURL(objectUrl);
+  };
+
   return (
     <div className="relative w-full overflow-hidden rounded-2xl bg-slate-200">
-      <div className="absolute left-4 top-4 z-10 flex gap-2">
+      <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setViewMode('2d')}
@@ -329,8 +302,24 @@ export default function GeneratedBuildingModel({
         >
           Auto Rotate
         </button>
+        <button type="button" onClick={() => handleDownloadProjection('top')} className="rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-900">
+          Export Top PNG
+        </button>
+        <button type="button" onClick={() => handleDownloadProjection('front')} className="rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-900">
+          Export Front PNG
+        </button>
+        <button type="button" onClick={() => handleDownloadProjection('left')} className="rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-900">
+          Export Left PNG
+        </button>
       </div>
       <div ref={containerRef} className="h-[700px] w-full" />
+      {viewMode === '2d' && projections && (
+        <div className="grid gap-3 bg-slate-100 p-3 md:grid-cols-3">
+          {(['top', 'front', 'left'] as const).map((key) => (
+            <img key={key} src={projections[key].toDataURL('image/png')} alt={`${key} orthographic`} className="w-full rounded-lg border border-slate-300 bg-white" />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
