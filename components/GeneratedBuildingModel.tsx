@@ -283,7 +283,7 @@ export default function GeneratedBuildingModel({
   }, [autoRotate]);
 
   return (
-    <div className="relative h-full min-h-[700px] w-full overflow-hidden rounded-2xl">
+    <div className="relative w-full overflow-hidden rounded-2xl bg-slate-200">
       <div className="absolute left-4 top-4 z-10 flex gap-2">
         <button
           type="button"
@@ -307,7 +307,7 @@ export default function GeneratedBuildingModel({
           Auto Rotate
         </button>
       </div>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div ref={containerRef} className="h-[700px] w-full" />
     </div>
   );
 }
