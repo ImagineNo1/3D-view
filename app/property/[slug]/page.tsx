@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { CopyLinkButton } from '@/components/CopyLinkButton';
 import { ImageGallery } from '@/components/ImageGallery';
 import { MapEmbed } from '@/components/MapEmbed';
-import { ThreeViewer } from '@/components/ThreeViewer';
+import GeneratedBuildingModel from '@/components/GeneratedBuildingModel';
 import { connectToDatabase } from '@/lib/mongodb';
 import Property from '@/models/Property';
 import type { Property as PropertyType } from '@/types/property';
@@ -43,7 +43,17 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
 
       <section className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
-          <ThreeViewer imageUrl={aerialImageUrl} title={property.title} latitude={property.latitude} longitude={property.longitude} />
+          <GeneratedBuildingModel
+            buildingArea={property.buildingArea ?? 900}
+            buildingHeight={property.buildingHeight ?? 24}
+            floorCount={property.floorCount ?? 6}
+            floorHeight={property.floorHeight}
+            latitude={property.latitude}
+            longitude={property.longitude}
+            facadeImages={property.images.gallery}
+            aerialImage={aerialImageUrl}
+            rotation={property.rotation}
+          />
         </div>
         <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-2xl font-semibold text-slate-900">{t.property.qr}</h2>

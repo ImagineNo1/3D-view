@@ -4,6 +4,10 @@ import Property from '@/models/Property';
 import type { PropertyPayload } from '@/types/property';
 import { parseGoogleMapsUrl } from '@/lib/maps';
 
+function normalizeOptionalNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
 
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -38,6 +42,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             gallery: payload.images?.gallery?.map((url) => url.trim()).filter(Boolean) ?? [],
             aerial: payload.images?.aerial?.map((url) => url.trim()).filter(Boolean) ?? []
           },
+          buildingArea: normalizeOptionalNumber(payload.buildingArea),
+          buildingHeight: normalizeOptionalNumber(payload.buildingHeight),
+          floorCount: normalizeOptionalNumber(payload.floorCount),
+          floorHeight: normalizeOptionalNumber(payload.floorHeight),
+          rotation: normalizeOptionalNumber(payload.rotation),
           latitude: mapsCoordinates?.lat,
           longitude: mapsCoordinates?.lng,
         }

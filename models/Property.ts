@@ -10,6 +10,11 @@ export interface IProperty {
   description: string;
   googleMapsUrl?: string;
   images: IPropertyImages;
+  buildingArea?: number;
+  buildingHeight?: number;
+  floorCount?: number;
+  floorHeight?: number;
+  rotation?: number;
   latitude?: number;
   longitude?: number;
   slug: string;
@@ -28,6 +33,11 @@ const PropertySchema = new Schema<IProperty>(
       gallery: { type: [String], default: [] },
       aerial: { type: [String], default: [] }
     },
+    buildingArea: { type: Number },
+    buildingHeight: { type: Number },
+    floorCount: { type: Number },
+    floorHeight: { type: Number },
+    rotation: { type: Number },
     latitude: { type: Number },
     longitude: { type: Number },
     slug: { type: String, required: true, unique: true, index: true },

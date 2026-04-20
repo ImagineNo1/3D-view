@@ -89,6 +89,11 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [title, setTitle] = useState(editing?.title || '');
   const [description, setDescription] = useState(editing?.description || '');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(editing?.googleMapsUrl || '');
+  const [buildingArea, setBuildingArea] = useState(editing?.buildingArea?.toString() || '');
+  const [buildingHeight, setBuildingHeight] = useState(editing?.buildingHeight?.toString() || '');
+  const [floorCount, setFloorCount] = useState(editing?.floorCount?.toString() || '');
+  const [floorHeight, setFloorHeight] = useState(editing?.floorHeight?.toString() || '');
+  const [rotation, setRotation] = useState(editing?.rotation?.toString() || '');
   const [galleryImages, setGalleryImages] = useState<UploadItem[]>(normalizeExistingImages(editing?.images.gallery || []));
   const [aerialImages, setAerialImages] = useState<UploadItem[]>(normalizeExistingImages(editing?.images.aerial || []));
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +105,22 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const parsedFromUrl = useMemo(() => parseGoogleMapsUrl(googleMapsUrl), [googleMapsUrl]);
   const propertyKey = useMemo(() => editing?._id || `temp-${Date.now()}`, [editing?._id]);
 
-  const payload = (gallery: string[], aerial: string[]): PropertyPayload => ({ title, description, googleMapsUrl, images: { gallery, aerial } });
+  const parseOptionalNumber = (value: string) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const payload = (gallery: string[], aerial: string[]): PropertyPayload => ({
+    title,
+    description,
+    googleMapsUrl,
+    images: { gallery, aerial },
+    buildingArea: parseOptionalNumber(buildingArea),
+    buildingHeight: parseOptionalNumber(buildingHeight),
+    floorCount: parseOptionalNumber(floorCount),
+    floorHeight: parseOptionalNumber(floorHeight),
+    rotation: parseOptionalNumber(rotation)
+  });
 
   const uploadBatch = async (category: 'gallery' | 'aerial', items: UploadItem[]) => {
     const result: string[] = [];
@@ -169,6 +189,29 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
           <span className="font-medium">{t.admin.mapsUrl}</span>
           <input type="url" value={googleMapsUrl} onChange={(event) => setGoogleMapsUrl(event.target.value)} placeholder={t.admin.mapsUrl} className="w-full rounded-xl border px-3 py-2 text-right" />
           {parsedFromUrl && <p className="text-xs text-emerald-700">{t.admin.coordsParsed}: {parsedFromUrl.lat}, {parsedFromUrl.lng}</p>}
+        </label>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <label className="space-y-1 text-sm text-slate-700">
+          <span className="font-medium">Building area (m²)</span>
+          <input type="number" min="1" step="0.1" value={buildingArea} onChange={(event) => setBuildingArea(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
+        </label>
+        <label className="space-y-1 text-sm text-slate-700">
+          <span className="font-medium">Building height (m)</span>
+          <input type="number" min="1" step="0.1" value={buildingHeight} onChange={(event) => setBuildingHeight(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
+        </label>
+        <label className="space-y-1 text-sm text-slate-700">
+          <span className="font-medium">Floors</span>
+          <input type="number" min="1" step="1" value={floorCount} onChange={(event) => setFloorCount(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
+        </label>
+        <label className="space-y-1 text-sm text-slate-700">
+          <span className="font-medium">Floor height (m)</span>
+          <input type="number" min="0" step="0.1" value={floorHeight} onChange={(event) => setFloorHeight(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
+        </label>
+        <label className="space-y-1 text-sm text-slate-700">
+          <span className="font-medium">Rotation (deg)</span>
+          <input type="number" step="0.1" value={rotation} onChange={(event) => setRotation(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
       </div>
 

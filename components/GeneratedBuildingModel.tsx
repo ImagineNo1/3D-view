@@ -6,12 +6,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const DEFAULT_RATIO = 0.6;
 
-function toPositiveNumber(value, fallback) {
+function toPositiveNumber(value: unknown, fallback: number) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-function computeDimensions(buildingArea, widthToDepthRatio = DEFAULT_RATIO) {
+function computeDimensions(buildingArea: unknown, widthToDepthRatio = DEFAULT_RATIO) {
   const area = toPositiveNumber(buildingArea, 100);
   const ratio = toPositiveNumber(widthToDepthRatio, DEFAULT_RATIO);
   const depth = Math.sqrt(area / ratio);
@@ -19,13 +19,13 @@ function computeDimensions(buildingArea, widthToDepthRatio = DEFAULT_RATIO) {
   return { width, depth };
 }
 
-function normalizeRotationY(rotation) {
+function normalizeRotationY(rotation: unknown) {
   const raw = Number(rotation);
   if (!Number.isFinite(raw)) return 0;
   return Math.abs(raw) > Math.PI * 2 ? THREE.MathUtils.degToRad(raw) : raw;
 }
 
-function createCoordinateLabelSprite(text) {
+function createCoordinateLabelSprite(text: string) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
@@ -53,6 +53,18 @@ function createCoordinateLabelSprite(text) {
   return sprite;
 }
 
+type GeneratedBuildingModelProps = {
+  buildingArea?: number;
+  buildingHeight?: number;
+  floorCount?: number;
+  floorHeight?: number;
+  latitude?: number;
+  longitude?: number;
+  facadeImages?: string[];
+  aerialImage?: string;
+  rotation?: number;
+};
+
 export default function GeneratedBuildingModel({
   buildingArea,
   buildingHeight,
@@ -63,8 +75,8 @@ export default function GeneratedBuildingModel({
   facadeImages = [],
   aerialImage,
   rotation
-}) {
-  const containerRef = useRef(null);
+}: GeneratedBuildingModelProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const model = useMemo(() => {
     const safeFloorCount = Math.max(1, Math.round(toPositiveNumber(floorCount, 1)));
@@ -82,10 +94,9 @@ export default function GeneratedBuildingModel({
       rotationY: normalizeRotationY(rotation),
       lat: Number.isFinite(Number(latitude)) ? Number(latitude) : 0,
       lon: Number.isFinite(Number(longitude)) ? Number(longitude) : 0,
-      facadeUrl: facadeImages?.[0] || null,
-      aerialImageUrl: aerialImage || null
+      facadeUrl: facadeImages?.[0] || null
     };
-  }, [buildingArea, buildingHeight, floorCount, floorHeight, latitude, longitude, facadeImages, aerialImage, rotation]);
+  }, [buildingArea, buildingHeight, floorCount, floorHeight, latitude, longitude, facadeImages, rotation]);
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
@@ -177,7 +188,7 @@ export default function GeneratedBuildingModel({
       const loader = new THREE.TextureLoader();
       loader.load(
         model.facadeUrl,
-        (texture) => {
+        (texture: any) => {
           texture.colorSpace = THREE.SRGBColorSpace;
           texture.wrapS = THREE.ClampToEdgeWrapping;
           texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -216,11 +227,12 @@ export default function GeneratedBuildingModel({
       window.cancelAnimationFrame(frameId);
       window.removeEventListener('resize', onResize);
       controls.dispose();
-      scene.traverse((obj) => {
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          mats.forEach((mat) => {
+      scene.traverse((obj: any) => {
+        const mesh = obj as any;
+        if (mesh.geometry) mesh.geometry.dispose();
+        if (mesh.material) {
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach((mat: any) => {
             if (mat.map) mat.map.dispose();
             mat.dispose();
           });
