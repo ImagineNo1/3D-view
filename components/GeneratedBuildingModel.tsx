@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
@@ -77,6 +77,8 @@ export default function GeneratedBuildingModel({
   rotation
 }: GeneratedBuildingModelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
+  const [autoRotate, setAutoRotate] = useState(false);
 
   const model = useMemo(() => {
     const safeFloorCount = Math.max(1, Math.round(toPositiveNumber(floorCount, 1)));
@@ -218,10 +220,28 @@ export default function GeneratedBuildingModel({
     let frameId = 0;
     const render = () => {
       frameId = window.requestAnimationFrame(render);
+      controls.autoRotate = autoRotate && viewMode === '3d';
       controls.update();
       renderer.render(scene, camera);
     };
     render();
+
+    const applyViewMode = () => {
+      if (viewMode === '2d') {
+        camera.position.set(0, Math.max(model.buildingHeight * 2.6, 35), 0.01);
+        controls.enableRotate = false;
+        controls.minPolarAngle = 0;
+        controls.maxPolarAngle = 0;
+      } else {
+        camera.position.set(model.width * 1.6, model.buildingHeight * 0.8, model.depth * 1.6);
+        controls.enableRotate = true;
+        controls.minPolarAngle = 0.1;
+        controls.maxPolarAngle = Math.PI / 2.05;
+      }
+      controls.target.set(0, model.buildingHeight * 0.35, 0);
+      controls.update();
+    };
+    applyViewMode();
 
     return () => {
       window.cancelAnimationFrame(frameId);
@@ -243,7 +263,34 @@ export default function GeneratedBuildingModel({
         container.removeChild(renderer.domElement);
       }
     };
-  }, [model]);
+  }, [autoRotate, model, viewMode]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: '480px' }} />;
+  return (
+    <div className="relative h-full min-h-[700px] w-full overflow-hidden rounded-2xl">
+      <div className="absolute left-4 top-4 z-10 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setViewMode('2d')}
+          className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${viewMode === '2d' ? 'bg-slate-900 text-white' : 'bg-white/90 text-slate-900'}`}
+        >
+          2D
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('3d')}
+          className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${viewMode === '3d' ? 'bg-slate-900 text-white' : 'bg-white/90 text-slate-900'}`}
+        >
+          3D
+        </button>
+        <button
+          type="button"
+          onClick={() => setAutoRotate((prev) => !prev)}
+          className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${autoRotate ? 'bg-blue-600 text-white' : 'bg-white/90 text-slate-900'}`}
+        >
+          Auto Rotate
+        </button>
+      </div>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+    </div>
+  );
 }

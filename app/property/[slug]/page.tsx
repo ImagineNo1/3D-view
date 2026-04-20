@@ -35,35 +35,31 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
         <p className="text-xs font-semibold tracking-[0.2em] text-blue-600">{t.property.showcase}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">{property.title}</h1>
         <p className="mt-4 max-w-4xl leading-7 text-slate-600">{property.description}</p>
-        <div className="mt-6 flex flex-wrap gap-2">
+        <div className="mt-6 flex flex-wrap items-center gap-3">
           <a href={property.publicUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">{t.property.openLink}</a>
           <CopyLinkButton url={property.publicUrl} />
+          <a href={property.qrCodeDataUrl} download={`${property.slug}-qr.png`} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900">
+            {t.property.downloadQr}
+          </a>
+        </div>
+        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <Image src={property.qrCodeDataUrl} alt={t.property.qr} width={84} height={84} className="rounded-lg border bg-white p-1" />
+          <p className="text-sm text-slate-600">{t.property.qr}</p>
         </div>
       </header>
 
-      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-        <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
-          <GeneratedBuildingModel
-            buildingArea={property.buildingArea ?? 900}
-            buildingHeight={property.buildingHeight ?? 24}
-            floorCount={property.floorCount ?? 6}
-            floorHeight={property.floorHeight}
-            latitude={property.latitude}
-            longitude={property.longitude}
-            facadeImages={property.images.gallery}
-            aerialImage={aerialImageUrl}
-            rotation={property.rotation}
-          />
-        </div>
-        <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-2xl font-semibold text-slate-900">{t.property.qr}</h2>
-          <div className="mt-4 flex flex-wrap items-center gap-4">
-            <Image src={property.qrCodeDataUrl} alt={t.property.qr} width={150} height={150} className="rounded-xl border" />
-            <a href={property.qrCodeDataUrl} download={`${property.slug}-qr.png`} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
-              {t.property.downloadQr}
-            </a>
-          </div>
-        </aside>
+      <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+        <GeneratedBuildingModel
+          buildingArea={property.buildingArea ?? 900}
+          buildingHeight={property.buildingHeight ?? 24}
+          floorCount={property.floorCount ?? 6}
+          floorHeight={property.floorHeight}
+          latitude={property.latitude}
+          longitude={property.longitude}
+          facadeImages={property.images.gallery}
+          aerialImage={aerialImageUrl}
+          rotation={property.rotation}
+        />
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
