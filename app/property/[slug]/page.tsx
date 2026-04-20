@@ -36,7 +36,6 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">{property.title}</h1>
         <p className="mt-4 max-w-4xl leading-7 text-slate-600">{property.description}</p>
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <a href={property.publicUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">{t.property.openLink}</a>
           <CopyLinkButton url={property.publicUrl} />
           <a href={property.qrCodeDataUrl} download={`${property.slug}-qr.png`} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900">
             {t.property.downloadQr}

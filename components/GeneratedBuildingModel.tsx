@@ -77,6 +77,10 @@ export default function GeneratedBuildingModel({
   rotation
 }: GeneratedBuildingModelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const controlsRef = useRef<InstanceType<typeof OrbitControls> | null>(null);
+  const cameraRef = useRef<any>(null);
+  const viewModeRef = useRef<'2d' | '3d'>('3d');
+  const autoRotateRef = useRef(false);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
   const [autoRotate, setAutoRotate] = useState(false);
 
@@ -118,6 +122,8 @@ export default function GeneratedBuildingModel({
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    controlsRef.current = controls;
+    cameraRef.current = camera;
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.target.set(0, model.buildingHeight * 0.35, 0);
@@ -220,32 +226,17 @@ export default function GeneratedBuildingModel({
     let frameId = 0;
     const render = () => {
       frameId = window.requestAnimationFrame(render);
-      controls.autoRotate = autoRotate && viewMode === '3d';
+      controls.autoRotate = autoRotateRef.current && viewModeRef.current === '3d';
       controls.update();
       renderer.render(scene, camera);
     };
     render();
 
-    const applyViewMode = () => {
-      if (viewMode === '2d') {
-        camera.position.set(0, Math.max(model.buildingHeight * 2.6, 35), 0.01);
-        controls.enableRotate = false;
-        controls.minPolarAngle = 0;
-        controls.maxPolarAngle = 0;
-      } else {
-        camera.position.set(model.width * 1.6, model.buildingHeight * 0.8, model.depth * 1.6);
-        controls.enableRotate = true;
-        controls.minPolarAngle = 0.1;
-        controls.maxPolarAngle = Math.PI / 2.05;
-      }
-      controls.target.set(0, model.buildingHeight * 0.35, 0);
-      controls.update();
-    };
-    applyViewMode();
-
     return () => {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener('resize', onResize);
+      controlsRef.current = null;
+      cameraRef.current = null;
       controls.dispose();
       scene.traverse((obj: any) => {
         const mesh = obj as any;
@@ -263,7 +254,33 @@ export default function GeneratedBuildingModel({
         container.removeChild(renderer.domElement);
       }
     };
-  }, [autoRotate, model, viewMode]);
+  }, [model]);
+
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+    const controls = controlsRef.current;
+    const camera = cameraRef.current;
+    if (!controls || !camera) return;
+
+    if (viewMode === '2d') {
+      camera.position.set(0, Math.max(model.buildingHeight * 2.6, 35), 0.01);
+      controls.enableRotate = false;
+      controls.minPolarAngle = 0;
+      controls.maxPolarAngle = 0;
+    } else {
+      camera.position.set(model.width * 1.6, model.buildingHeight * 0.8, model.depth * 1.6);
+      controls.enableRotate = true;
+      controls.minPolarAngle = 0.1;
+      controls.maxPolarAngle = Math.PI / 2.05;
+    }
+
+    controls.target.set(0, model.buildingHeight * 0.35, 0);
+    controls.update();
+  }, [model.buildingHeight, model.depth, model.width, viewMode]);
+
+  useEffect(() => {
+    autoRotateRef.current = autoRotate;
+  }, [autoRotate]);
 
   return (
     <div className="relative h-full min-h-[700px] w-full overflow-hidden rounded-2xl">
