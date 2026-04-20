@@ -50,8 +50,13 @@ export async function POST(request: NextRequest) {
       urls.push(`/uploads/properties/${propertyKey}/${category}/${filename}`);
     }
 
-    return NextResponse.json({ urls });
-  } catch {
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      fileUrl: urls[0] || null,
+      urls
+    }, { status: 201 });
+  } catch (error) {
+    console.error('Upload API error', error);
+    return NextResponse.json({ success: false, error: 'Upload failed' }, { status: 500 });
   }
 }
