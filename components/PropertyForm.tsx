@@ -2,52 +2,40 @@
 
 import { FormEvent, useMemo, useState } from 'react';
 import { parseGoogleMapsUrl, parseJsonArray } from '@/lib/maps';
-import { ImageUrlInput } from './ImageUrlInput';
-import type { LatLngPoint, Property, ViewerHotspot } from '@/types/property';
+import { ImageUploader } from '@/components/admin/ImageUploader';
+import type { LatLngPoint, Property, PropertyPayload, ViewerHotspot } from '@/types/property';
 
 type Props = {
   onCreated: (property: Property) => void;
+  editing?: Property | null;
+  onUpdated?: (property: Property) => void;
+  onCancelEdit?: () => void;
 };
 
-const BOUNDARY_EXAMPLE = `[
-  {"lat": 25.1973, "lng": 55.2744},
-  {"lat": 25.1977, "lng": 55.2750},
-  {"lat": 25.1969, "lng": 55.2753}
-]`;
+const BOUNDARY_EXAMPLE = `[{"lat": 25.1973, "lng": 55.2744}]`;
+const HOTSPOT_EXAMPLE = `[{"label":"Entrance", "description":"Main gate", "x": -2.3, "y": 1.8}]`;
 
-const HOTSPOT_EXAMPLE = `[
-  {"label":"Entrance", "description":"Main gate", "x": -2.3, "y": 1.8},
-  {"label":"Clubhouse", "description":"Amenities zone", "x": 1.2, "y": -0.9}
-]`;
-
-export function PropertyForm({ onCreated }: Props) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
-  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
-  const [satelliteImageUrl, setSatelliteImageUrl] = useState('');
-  const [boundaryJson, setBoundaryJson] = useState(BOUNDARY_EXAMPLE);
-  const [hotspotsJson, setHotspotsJson] = useState(HOTSPOT_EXAMPLE);
-  const [images, setImages] = useState<string[]>(['']);
+export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Props) {
+  const [title, setTitle] = useState(editing?.title || '');
+  const [description, setDescription] = useState(editing?.description || '');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(editing?.googleMapsUrl || '');
+  const [boundaryJson, setBoundaryJson] = useState(JSON.stringify(editing?.boundary || JSON.parse(BOUNDARY_EXAMPLE), null, 2));
+  const [hotspotsJson, setHotspotsJson] = useState(JSON.stringify(editing?.hotspots || JSON.parse(HOTSPOT_EXAMPLE), null, 2));
+  const [galleryImages, setGalleryImages] = useState<string[]>(editing?.images.gallery || []);
+  const [aerialImages, setAerialImages] = useState<string[]>(editing?.images.aerial || []);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const parsedFromUrl = useMemo(() => parseGoogleMapsUrl(googleMapsUrl), [googleMapsUrl]);
 
-  const resetForm = () => {
-    setTitle('');
-    setDescription('');
-    setLocation('');
-    setGoogleMapsUrl('');
-    setLatitude('');
-    setLongitude('');
-    setSatelliteImageUrl('');
-    setBoundaryJson(BOUNDARY_EXAMPLE);
-    setHotspotsJson(HOTSPOT_EXAMPLE);
-    setImages(['']);
-  };
+  const payload = (): PropertyPayload => ({
+    title,
+    description,
+    googleMapsUrl,
+    images: { gallery: galleryImages, aerial: aerialImages },
+    boundary: parseJsonArray<LatLngPoint>(boundaryJson, []),
+    hotspots: parseJsonArray<ViewerHotspot>(hotspotsJson, [])
+  });
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -55,30 +43,19 @@ export function PropertyForm({ onCreated }: Props) {
     setError(null);
 
     try {
-      const response = await fetch('/api/properties', {
-        method: 'POST',
+      const response = await fetch(editing ? `/api/properties/${editing.slug}` : '/api/properties', {
+        method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description,
-          location,
-          googleMapsUrl,
-          latitude: latitude ? Number(latitude) : parsedFromUrl?.lat,
-          longitude: longitude ? Number(longitude) : parsedFromUrl?.lng,
-          satelliteImageUrl,
-          boundary: parseJsonArray<LatLngPoint>(boundaryJson, []),
-          hotspots: parseJsonArray<ViewerHotspot>(hotspotsJson, []),
-          images: images.map((url) => url.trim()).filter(Boolean)
-        })
+        body: JSON.stringify(payload())
       });
 
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create property');
+      if (!response.ok) throw new Error(data.error || 'Failed to save property');
+      if (editing) {
+        onUpdated?.(data as Property);
+      } else {
+        onCreated(data as Property);
       }
-
-      onCreated(data as Property);
-      resetForm();
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : 'Unexpected error');
     } finally {
@@ -87,113 +64,30 @@ export function PropertyForm({ onCreated }: Props) {
   };
 
   return (
-    <form className="space-y-4 rounded-xl bg-white p-5 shadow" onSubmit={handleSubmit}>
-      <h2 className="text-xl font-semibold text-slate-900">Create Property</h2>
+    <form className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm" onSubmit={handleSubmit}>
+      <h2 className="text-xl font-semibold text-slate-900">{editing ? 'Edit Property' : 'Create Property'}</h2>
+      <input required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title" className="w-full rounded-xl border px-3 py-2" />
+      <textarea required value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description" className="h-24 w-full rounded-xl border px-3 py-2" />
+      <input type="url" value={googleMapsUrl} onChange={(event) => setGoogleMapsUrl(event.target.value)} placeholder="Google Maps URL" className="w-full rounded-xl border px-3 py-2" />
+      {parsedFromUrl && <p className="text-xs text-emerald-700">Coordinates parsed: {parsedFromUrl.lat}, {parsedFromUrl.lng}</p>}
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Title</label>
-        <input
-          required
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
-        />
-      </div>
+      <ImageUploader label="Gallery Images" category="gallery" value={galleryImages} onChange={setGalleryImages} multiple />
+      <ImageUploader label="Aerial Images" category="aerial" value={aerialImages} onChange={setAerialImages} multiple={false} />
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
-        <textarea
-          required
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          className="h-24 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Location (optional)</label>
-        <input
-          value={location}
-          onChange={(event) => setLocation(event.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Google Maps URL (optional)</label>
-        <input
-          type="url"
-          value={googleMapsUrl}
-          onChange={(event) => setGoogleMapsUrl(event.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
-          placeholder="https://maps.google.com/..."
-        />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Latitude (optional)</label>
-          <input
-            type="number"
-            step="any"
-            value={latitude}
-            onChange={(event) => setLatitude(event.target.value)}
-            placeholder={parsedFromUrl?.lat?.toString() || 'auto from maps URL'}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Longitude (optional)</label>
-          <input
-            type="number"
-            step="any"
-            value={longitude}
-            onChange={(event) => setLongitude(event.target.value)}
-            placeholder={parsedFromUrl?.lng?.toString() || 'auto from maps URL'}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Satellite image URL override (optional)</label>
-        <input
-          type="url"
-          value={satelliteImageUrl}
-          onChange={(event) => setSatelliteImageUrl(event.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-400"
-          placeholder="Auto-generated from coordinates if empty"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Boundary polygon JSON (lat/lng points)</label>
-        <textarea
-          value={boundaryJson}
-          onChange={(event) => setBoundaryJson(event.target.value)}
-          className="h-28 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-slate-400"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Hotspots JSON (label, description, x, y)</label>
-        <textarea
-          value={hotspotsJson}
-          onChange={(event) => setHotspotsJson(event.target.value)}
-          className="h-28 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-slate-400"
-        />
-      </div>
-
-      <ImageUrlInput value={images} onChange={setImages} />
+      <textarea value={boundaryJson} onChange={(event) => setBoundaryJson(event.target.value)} className="h-28 w-full rounded-xl border px-3 py-2 font-mono text-xs" />
+      <textarea value={hotspotsJson} onChange={(event) => setHotspotsJson(event.target.value)} className="h-28 w-full rounded-xl border px-3 py-2 font-mono text-xs" />
 
       {error && <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
-
-      <button
-        disabled={loading}
-        className="rounded-md bg-slate-900 px-4 py-2 text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-      >
-        {loading ? 'Creating...' : 'Create Property'}
-      </button>
+      <div className="flex gap-2">
+        <button disabled={loading} className="rounded-xl bg-slate-900 px-4 py-2 text-white disabled:opacity-60">
+          {loading ? 'Saving...' : editing ? 'Update Property' : 'Create Property'}
+        </button>
+        {editing && (
+          <button type="button" onClick={onCancelEdit} className="rounded-xl border px-4 py-2">
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
 }
