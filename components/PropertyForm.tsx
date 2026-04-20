@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
-import { ImageUploader, normalizeExistingImages, type UploadItem } from '@/components/admin/ImageUploader';
+import { ImageUploader, normalizeExistingImages, type UploadItem, type UploadStatus } from '@/components/admin/ImageUploader';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { parseGoogleMapsUrl } from '@/lib/maps';
 import type { Property, PropertyPayload } from '@/types/property';
@@ -13,8 +13,26 @@ type Props = {
   onCancelEdit?: () => void;
 };
 
-async function uploadImageWithProgress(category: 'gallery' | 'aerial', item: UploadItem, propertyKey: string, onProgress: (value: number) => void): Promise<string> {
-  if (!item.file) return item.url;
+type UploadResponse = {
+  success?: boolean;
+  fileUrl?: string;
+  urls?: string[];
+  error?: string;
+};
+
+async function uploadImageWithProgress(
+  category: 'gallery' | 'aerial',
+  item: UploadItem,
+  propertyKey: string,
+  onProgress: (value: number) => void,
+  onStatusChange: (status: UploadStatus, message?: string) => void
+): Promise<string> {
+  if (item.type === 'url' || !item.file) {
+    onProgress(100);
+    onStatusChange('success');
+    return item.url;
+  }
+
   const file = item.file;
 
   return new Promise((resolve, reject) => {
@@ -23,24 +41,40 @@ async function uploadImageWithProgress(category: 'gallery' | 'aerial', item: Upl
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
+      onStatusChange('uploading');
       onProgress((event.loaded / event.total) * 100);
     };
 
     xhr.onload = () => {
+      let data: UploadResponse = {};
       try {
-        const data = JSON.parse(xhr.responseText) as { urls?: string[]; error?: string };
-        if (xhr.status >= 200 && xhr.status < 300 && data.urls?.[0]) {
-          onProgress(100);
-          resolve(data.urls[0]);
-          return;
-        }
-        reject(new Error(data.error || 'Upload failed'));
-      } catch {
-        reject(new Error('Upload failed'));
+        data = JSON.parse(xhr.responseText) as UploadResponse;
+      } catch (error) {
+        console.error('Upload response parse error', error, xhr.responseText);
       }
+
+      const uploadedUrl = data.fileUrl || data.urls?.[0];
+      const hasSuccess = xhr.status >= 200 && xhr.status < 300 && (data.success === true || Boolean(uploadedUrl));
+
+      if (hasSuccess && uploadedUrl) {
+        onProgress(100);
+        onStatusChange('success');
+        resolve(uploadedUrl);
+        return;
+      }
+
+      const message = data.error || `Upload failed (status ${xhr.status})`;
+      console.error('Upload rejected', { status: xhr.status, body: xhr.responseText, parsed: data });
+      onStatusChange('error', message);
+      reject(new Error(message));
     };
 
-    xhr.onerror = () => reject(new Error('Upload failed'));
+    xhr.onerror = () => {
+      const message = 'Network error while uploading image';
+      console.error(message, { category, propertyKey, fileName: file.name });
+      onStatusChange('error', message);
+      reject(new Error(message));
+    };
 
     const formData = new FormData();
     formData.append('category', category);
@@ -60,6 +94,8 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [progressById, setProgressById] = useState<Record<string, number>>({});
+  const [statusById, setStatusById] = useState<Record<string, UploadStatus>>({});
+  const [errorById, setErrorById] = useState<Record<string, string>>({});
 
   const parsedFromUrl = useMemo(() => parseGoogleMapsUrl(googleMapsUrl), [googleMapsUrl]);
   const propertyKey = useMemo(() => editing?._id || `temp-${Date.now()}`, [editing?._id]);
@@ -70,11 +106,24 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
     const result: string[] = [];
     for (const item of items) {
       if (item.file && !['image/jpeg', 'image/png', 'image/webp'].includes(item.file.type)) {
-        throw new Error(t.admin.fileTypeError);
+        setStatusById((prev) => ({ ...prev, [item.id]: 'error' }));
+        const typeError = t.admin.fileTypeError;
+        setErrorById((prev) => ({ ...prev, [item.id]: typeError }));
+        throw new Error(typeError);
       }
-      const url = await uploadImageWithProgress(category, item, propertyKey, (value) => {
-        setProgressById((prev) => ({ ...prev, [item.id]: value }));
-      });
+
+      const url = await uploadImageWithProgress(
+        category,
+        item,
+        propertyKey,
+        (value) => {
+          setProgressById((prev) => ({ ...prev, [item.id]: value }));
+        },
+        (status, message) => {
+          setStatusById((prev) => ({ ...prev, [item.id]: status }));
+          if (message) setErrorById((prev) => ({ ...prev, [item.id]: message }));
+        }
+      );
       result.push(url);
     }
     return result;
@@ -129,8 +178,28 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
       </label>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <ImageUploader label={t.admin.gallery} helperText={t.admin.uploadHintGallery} value={galleryImages} onChange={setGalleryImages} progressById={progressById} multiple />
-        <ImageUploader label={t.admin.aerial} helperText={t.admin.uploadHintAerial} value={aerialImages} onChange={setAerialImages} progressById={progressById} multiple={false} />
+        <ImageUploader
+          label={t.admin.gallery}
+          helperText={t.admin.uploadHintGallery}
+          value={galleryImages}
+          onChange={setGalleryImages}
+          progressById={progressById}
+          statusById={statusById}
+          errorById={errorById}
+          onUrlValidationError={setError}
+          multiple
+        />
+        <ImageUploader
+          label={t.admin.aerial}
+          helperText={t.admin.uploadHintAerial}
+          value={aerialImages}
+          onChange={setAerialImages}
+          progressById={progressById}
+          statusById={statusById}
+          errorById={errorById}
+          onUrlValidationError={setError}
+          multiple={false}
+        />
       </div>
 
       {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
