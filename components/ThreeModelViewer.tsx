@@ -25,12 +25,16 @@ export function ThreeModelViewer({ modelUrl }: Props) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#f1f5f9');
 
-    const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const width = Math.max(container.clientWidth, 1);
+    const height = Math.max(container.clientHeight, 1);
+
+    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
     camera.position.set(2, 2, 3);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'low-power' });
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+    renderer.setPixelRatio(pixelRatio);
+    renderer.setSize(width, height);
     container.appendChild(renderer.domElement);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -44,6 +48,20 @@ export function ThreeModelViewer({ modelUrl }: Props) {
 
     const loader = new GLTFLoader();
     let mounted = true;
+    let frameId = 0;
+
+    const stopLoadingWithError = (message: string) => {
+      setError(message);
+      setLoading(false);
+    };
+
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      if (!mounted) return;
+      stopLoadingWithError('3D rendering crashed on this device. Please reload or use a lighter model file.');
+    };
+
+    renderer.domElement.addEventListener('webglcontextlost', onContextLost, false);
 
     loader.load(
       modelUrl,
@@ -60,31 +78,36 @@ export function ThreeModelViewer({ modelUrl }: Props) {
       undefined,
       () => {
         if (!mounted) return;
-        setError('Failed to load 3D model. Verify the URL and CORS configuration.');
-        setLoading(false);
+        stopLoadingWithError('Failed to load 3D model. Verify the URL and CORS configuration.');
       }
     );
 
     const onResize = () => {
-      if (!container) return;
-      camera.aspect = container.clientWidth / container.clientHeight;
+      const nextWidth = Math.max(container.clientWidth, 1);
+      const nextHeight = Math.max(container.clientHeight, 1);
+      camera.aspect = nextWidth / nextHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(nextWidth, nextHeight);
     };
 
     window.addEventListener('resize', onResize);
 
     const animate = () => {
       if (!mounted) return;
-      controls.update();
-      renderer.render(scene, camera);
-      requestAnimationFrame(animate);
+      if (!document.hidden) {
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      frameId = window.requestAnimationFrame(animate);
     };
-    animate();
+
+    frameId = window.requestAnimationFrame(animate);
 
     return () => {
       mounted = false;
+      window.cancelAnimationFrame(frameId);
       window.removeEventListener('resize', onResize);
+      renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
       controls.dispose();
       renderer.dispose();
       scene.clear();
