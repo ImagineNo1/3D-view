@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { useLanguage } from '@/components/providers/LanguageProvider';
 
 type UploadItem = {
   id: string;
@@ -14,8 +15,7 @@ type Props = {
   value: UploadItem[];
   onChange: (items: UploadItem[]) => void;
   multiple?: boolean;
-  uploading?: boolean;
-  progressLabel?: string;
+  progressById?: Record<string, number>;
 };
 
 function createId() {
@@ -36,22 +36,13 @@ export function normalizeExistingImages(urls: string[]) {
   return urls.map((url) => ({ id: createId(), url }));
 }
 
-export function ImageUploader({ label, helperText, value, onChange, multiple = true, uploading, progressLabel }: Props) {
+export function ImageUploader({ label, helperText, value, onChange, multiple = true, progressById = {} }: Props) {
+  const { t } = useLanguage();
+
   const onFileSelect = (files: FileList | null) => {
     const incoming = buildUploadItems(files);
     if (!incoming.length) return;
     onChange(multiple ? [...value, ...incoming] : incoming.slice(0, 1));
-  };
-
-  const moveItem = (fromId: string, toId: string) => {
-    if (fromId === toId) return;
-    const fromIndex = value.findIndex((item) => item.id === fromId);
-    const toIndex = value.findIndex((item) => item.id === toId);
-    if (fromIndex < 0 || toIndex < 0) return;
-    const next = [...value];
-    const [moved] = next.splice(fromIndex, 1);
-    next.splice(toIndex, 0, moved);
-    onChange(next);
   };
 
   return (
@@ -72,39 +63,32 @@ export function ImageUploader({ label, helperText, value, onChange, multiple = t
             event.currentTarget.value = '';
           }}
         />
-        Choose {multiple ? 'images' : 'image'}
+        {multiple ? t.admin.chooseImages : t.admin.chooseImage}
       </label>
 
-      {uploading && <p className="text-xs font-medium text-blue-700">{progressLabel || 'Uploading images...'}</p>}
-
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-        {value.map((item) => (
-          <article
-            key={item.id}
-            draggable
-            onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              moveItem(event.dataTransfer.getData('text/plain'), item.id);
-            }}
-            className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-          >
-            <div className="relative h-28 w-full">
-              <Image src={item.url} alt="Preview" fill className="object-cover" sizes="(max-width: 768px) 50vw, 20vw" />
-            </div>
-            <div className="flex items-center justify-between gap-2 px-2 py-2 text-xs">
-              <span className="truncate text-slate-500">{item.file?.name || 'Saved image'}</span>
-              <button
-                type="button"
-                onClick={() => onChange(value.filter((entry) => entry.id !== item.id))}
-                className="rounded-md bg-red-50 px-2 py-1 text-red-700 hover:bg-red-100"
-              >
-                Remove
-              </button>
-            </div>
-          </article>
-        ))}
+        {value.map((item) => {
+          const progress = progressById[item.id] ?? (item.file ? 0 : 100);
+          return (
+            <article key={item.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="relative h-28 w-full">
+                <Image src={item.url} alt={t.admin.preview} fill className="object-cover" sizes="(max-width: 768px) 50vw, 20vw" />
+              </div>
+              <div className="space-y-2 px-2 py-2 text-xs">
+                <span className="block truncate text-slate-500">{item.file?.name || t.admin.savedImage}</span>
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">{t.admin.progress}: {Math.round(progress)}٪</span>
+                  <button type="button" onClick={() => onChange(value.filter((entry) => entry.id !== item.id))} className="rounded-md bg-red-50 px-2 py-1 text-red-700 hover:bg-red-100">
+                    {t.common.remove}
+                  </button>
+                </div>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

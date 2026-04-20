@@ -12,10 +12,17 @@ function extensionFromMime(mime: string) {
   return 'jpg';
 }
 
+function sanitizeKey(input: string) {
+  return input.replace(/[^a-zA-Z0-9-_]/g, '').slice(0, 64) || 'general';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const category = formData.get('category');
+    const propertyKeyRaw = String(formData.get('propertyKey') || 'general');
+    const propertyKey = sanitizeKey(propertyKeyRaw);
+
     if (category !== 'gallery' && category !== 'aerial') {
       return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
     }
@@ -23,7 +30,7 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll('files').filter((item): item is File => item instanceof File);
     if (!files.length) return NextResponse.json({ error: 'No files uploaded' }, { status: 400 });
 
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', category);
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'properties', propertyKey, category);
     await mkdir(uploadDir, { recursive: true });
 
     const urls: string[] = [];
@@ -40,7 +47,7 @@ export async function POST(request: NextRequest) {
       const filename = `${Date.now()}-${randomUUID()}.${ext}`;
       const buffer = Buffer.from(await file.arrayBuffer());
       await writeFile(path.join(uploadDir, filename), buffer);
-      urls.push(`/uploads/${category}/${filename}`);
+      urls.push(`/uploads/properties/${propertyKey}/${category}/${filename}`);
     }
 
     return NextResponse.json({ urls });

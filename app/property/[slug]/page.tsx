@@ -30,9 +30,9 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
   const aerialImageUrl = property.images.aerial[0] || property.images.gallery[0];
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-10 px-4 pb-16 pt-8 md:px-6">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-4 pb-16 pt-8 md:px-6" dir={locale === 'fa' ? 'rtl' : 'ltr'}>
       <header className="rounded-3xl border bg-white p-8 shadow-xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">{t.property.showcase}</p>
+        <p className="text-xs font-semibold tracking-[0.2em] text-blue-600">{t.property.showcase}</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">{property.title}</h1>
         <p className="mt-5 max-w-3xl text-base text-slate-600">{property.description}</p>
         <div className="mt-6 flex flex-wrap gap-2">
@@ -41,22 +41,26 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
         </div>
       </header>
 
-      <section className="rounded-3xl border bg-white/75 p-4 shadow-lg md:p-6">
-        <ThreeViewer imageUrl={aerialImageUrl} title={property.title} latitude={property.latitude} longitude={property.longitude} />
-      </section>
-
-      <ImageGallery images={property.images.gallery} title={property.title} />
-      <MapEmbed googleMapsUrl={property.googleMapsUrl} />
-
-      <section className="rounded-3xl border bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{t.property.qr}</h2>
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <Image src={property.qrCodeDataUrl} alt={`QR for ${property.title}`} width={150} height={150} className="rounded-xl border" />
-          <a href={property.qrCodeDataUrl} download={`${property.slug}-qr.png`} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
-            {t.property.downloadQr}
-          </a>
+      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-3xl border bg-white/75 p-4 shadow-lg md:p-6">
+          <ThreeViewer imageUrl={aerialImageUrl} title={property.title} latitude={property.latitude} longitude={property.longitude} />
+        </div>
+        <div className="rounded-3xl border bg-white p-6 shadow-sm">
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{t.property.qr}</h2>
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <Image src={property.qrCodeDataUrl} alt={t.property.qr} width={150} height={150} className="rounded-xl border" />
+            <a href={property.qrCodeDataUrl} download={`${property.slug}-qr.png`} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+              {t.property.downloadQr}
+            </a>
+          </div>
         </div>
       </section>
+
+      <section className="rounded-3xl border bg-white p-4 shadow-sm md:p-6">
+        <ImageGallery images={property.images.gallery} title={property.title} />
+      </section>
+
+      <MapEmbed googleMapsUrl={property.googleMapsUrl} />
     </main>
   );
 }

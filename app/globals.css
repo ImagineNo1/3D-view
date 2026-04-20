@@ -62,3 +62,22 @@ body {
 html[dir="rtl"] body {
   font-family: "Vazirmatn", Tahoma, sans-serif;
 }
+
+
+html[dir="rtl"] body {
+  text-align: right;
+}
+
+html[dir="rtl"] .rtl-flip {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] input,
+html[dir="rtl"] textarea {
+  text-align: right;
+}
+
+html[dir="rtl"] th,
+html[dir="rtl"] td {
+  text-align: right;
+}
