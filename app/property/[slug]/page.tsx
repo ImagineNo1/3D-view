@@ -42,7 +42,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
       </header>
 
       <section className="rounded-3xl border bg-white/75 p-4 shadow-lg md:p-6">
-        <ThreeViewer imageUrl={aerialImageUrl} title={property.title} latitude={property.latitude} longitude={property.longitude} boundary={property.boundary || []} hotspots={property.hotspots || []} />
+        <ThreeViewer imageUrl={aerialImageUrl} title={property.title} latitude={property.latitude} longitude={property.longitude} />
       </section>
 
       <ImageGallery images={property.images.gallery} title={property.title} />
