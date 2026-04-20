@@ -8,6 +8,11 @@ export type PropertyPayload = {
   description: string;
   googleMapsUrl?: string;
   images: PropertyImages;
+  buildingArea?: number;
+  buildingHeight?: number;
+  floorCount?: number;
+  floorHeight?: number;
+  rotation?: number;
 };
 
 export type Property = PropertyPayload & {

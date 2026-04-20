@@ -14,6 +14,10 @@ function validatePayload(payload: Partial<PropertyPayload>) {
   return null;
 }
 
+function normalizeOptionalNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
 
 export async function GET() {
   try {
@@ -50,6 +54,11 @@ export async function POST(request: NextRequest) {
         gallery: payload.images?.gallery?.map((url) => url.trim()).filter(Boolean) ?? [],
         aerial: payload.images?.aerial?.map((url) => url.trim()).filter(Boolean) ?? []
       },
+      buildingArea: normalizeOptionalNumber(payload.buildingArea),
+      buildingHeight: normalizeOptionalNumber(payload.buildingHeight),
+      floorCount: normalizeOptionalNumber(payload.floorCount),
+      floorHeight: normalizeOptionalNumber(payload.floorHeight),
+      rotation: normalizeOptionalNumber(payload.rotation),
       latitude,
       longitude,
       slug,
