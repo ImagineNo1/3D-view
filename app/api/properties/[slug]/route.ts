@@ -1,6 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import Property from '@/models/Property';
+import type { PropertyPayload } from '@/types/property';
+import { parseGoogleMapsUrl } from '@/lib/maps';
+
+function sanitizeBoundary(boundary: PropertyPayload['boundary'] | undefined) {
+  return (boundary || []).filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng));
+}
+
+function sanitizeHotspots(hotspots: PropertyPayload['hotspots'] | undefined) {
+  return (hotspots || []).filter((item) => item?.label?.trim() && item?.description?.trim() && Number.isFinite(item?.x) && Number.isFinite(item?.y));
+}
 
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -8,14 +18,46 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
     await connectToDatabase();
 
     const property = await Property.findOne({ slug }).lean();
-
-    if (!property) {
-      return NextResponse.json({ error: 'Property not found' }, { status: 404 });
-    }
+    if (!property) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
 
     return NextResponse.json(property);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch property' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  try {
+    const { slug } = await params;
+    const payload = (await request.json()) as Partial<PropertyPayload>;
+    await connectToDatabase();
+
+    const mapsCoordinates = payload.googleMapsUrl ? parseGoogleMapsUrl(payload.googleMapsUrl) : null;
+
+    const updated = await Property.findOneAndUpdate(
+      { slug },
+      {
+        $set: {
+          title: payload.title?.trim(),
+          description: payload.description?.trim(),
+          googleMapsUrl: payload.googleMapsUrl?.trim(),
+          images: {
+            gallery: payload.images?.gallery?.map((url) => url.trim()).filter(Boolean) ?? [],
+            aerial: payload.images?.aerial?.map((url) => url.trim()).filter(Boolean) ?? []
+          },
+          latitude: mapsCoordinates?.lat,
+          longitude: mapsCoordinates?.lng,
+          boundary: sanitizeBoundary(payload.boundary),
+          hotspots: sanitizeHotspots(payload.hotspots)
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+    return NextResponse.json(updated);
+  } catch {
+    return NextResponse.json({ error: 'Failed to update property' }, { status: 500 });
   }
 }
 
@@ -25,10 +67,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ slug: s
     await connectToDatabase();
 
     const deleted = await Property.findOneAndDelete({ slug });
-
-    if (!deleted) {
-      return NextResponse.json({ error: 'Property not found' }, { status: 404 });
-    }
+    if (!deleted) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
 
     return NextResponse.json({ ok: true });
   } catch {

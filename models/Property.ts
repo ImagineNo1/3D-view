@@ -12,13 +12,16 @@ interface IViewerHotspot {
   y: number;
 }
 
+interface IPropertyImages {
+  gallery: string[];
+  aerial: string[];
+}
+
 export interface IProperty {
   title: string;
   description: string;
-  images: string[];
-  location?: string;
   googleMapsUrl?: string;
-  satelliteImageUrl?: string;
+  images: IPropertyImages;
   latitude?: number;
   longitude?: number;
   boundary: ILatLngPoint[];
@@ -30,14 +33,7 @@ export interface IProperty {
   updatedAt: Date;
 }
 
-const LatLngSchema = new Schema<ILatLngPoint>(
-  {
-    lat: { type: Number, required: true },
-    lng: { type: Number, required: true }
-  },
-  { _id: false }
-);
-
+const LatLngSchema = new Schema<ILatLngPoint>({ lat: { type: Number, required: true }, lng: { type: Number, required: true } }, { _id: false });
 const HotspotSchema = new Schema<IViewerHotspot>(
   {
     label: { type: String, required: true, trim: true },
@@ -52,10 +48,11 @@ const PropertySchema = new Schema<IProperty>(
   {
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
-    images: { type: [String], default: [] },
-    location: { type: String, trim: true },
     googleMapsUrl: { type: String, trim: true },
-    satelliteImageUrl: { type: String, trim: true },
+    images: {
+      gallery: { type: [String], default: [] },
+      aerial: { type: [String], default: [] }
+    },
     latitude: { type: Number },
     longitude: { type: Number },
     boundary: { type: [LatLngSchema], default: [] },

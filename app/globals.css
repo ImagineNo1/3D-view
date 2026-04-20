@@ -58,3 +58,7 @@ body {
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
+
+html[dir="rtl"] body {
+  font-family: "Vazirmatn", Tahoma, sans-serif;
+}
