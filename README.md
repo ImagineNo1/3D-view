@@ -89,3 +89,20 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
 - Ensure model URLs are publicly accessible and CORS-enabled.
 - QR codes are generated as base64 image data and stored on each property.
+
+
+## Example boundary + hotspots payload
+
+```json
+{
+  "boundary": [
+    {"lat": 25.1973, "lng": 55.2744},
+    {"lat": 25.1977, "lng": 55.2750},
+    {"lat": 25.1969, "lng": 55.2753}
+  ],
+  "hotspots": [
+    {"label": "Entrance", "description": "Main gate", "x": -2.3, "y": 1.8},
+    {"label": "Clubhouse", "description": "Amenities zone", "x": 1.2, "y": -0.9}
+  ]
+}
+```

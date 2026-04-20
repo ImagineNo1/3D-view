@@ -4,6 +4,7 @@ import { CopyLinkButton } from '@/components/CopyLinkButton';
 import { ImageGallery } from '@/components/ImageGallery';
 import { MapEmbed } from '@/components/MapEmbed';
 import { ThreeViewer } from '@/components/ThreeViewer';
+import { getSatelliteImage } from '@/lib/maps';
 import { connectToDatabase } from '@/lib/mongodb';
 import Property from '@/models/Property';
 import type { Property as PropertyType } from '@/types/property';
@@ -26,7 +27,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
     notFound();
   }
 
-  const satelliteImageUrl = property.satelliteImageUrl || property.images[0];
+  const autoSatellite = getSatelliteImage(property.latitude, property.longitude);
+  const satelliteImageUrl = property.satelliteImageUrl || autoSatellite || property.images[0];
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-4 py-8">
@@ -47,7 +49,14 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
         </div>
       </header>
 
-      <ThreeViewer imageUrl={satelliteImageUrl} title={property.title} />
+      <ThreeViewer
+        imageUrl={satelliteImageUrl}
+        title={property.title}
+        latitude={property.latitude}
+        longitude={property.longitude}
+        boundary={property.boundary || []}
+        hotspots={property.hotspots || []}
+      />
       <ImageGallery images={property.images} title={property.title} />
       <MapEmbed googleMapsUrl={property.googleMapsUrl} />
 
