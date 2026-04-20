@@ -31,37 +31,55 @@ export function ThreeModelViewer({ modelUrl }: Props) {
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
     camera.position.set(2, 2, 3);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'low-power' });
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+    let renderer: THREE.WebGLRenderer;
+
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        powerPreference: 'low-power',
+        failIfMajorPerformanceCaveat: true
+      });
+    } catch {
+      setError('3D is not supported on this browser/device. Please open this link in Chrome or Safari.');
+      setLoading(false);
+      return;
+    }
+
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(width, height);
     container.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.1);
     directionalLight.position.set(5, 10, 7);
     scene.add(ambientLight, directionalLight);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    controls.enableDamping = false;
     controls.target.set(0, 0.75, 0);
 
     const loader = new GLTFLoader();
     let mounted = true;
-    let frameId = 0;
 
     const stopLoadingWithError = (message: string) => {
       setError(message);
       setLoading(false);
     };
 
+    const renderScene = () => {
+      if (!mounted) return;
+      renderer.render(scene, camera);
+    };
+
     const onContextLost = (event: Event) => {
       event.preventDefault();
       if (!mounted) return;
-      stopLoadingWithError('3D rendering crashed on this device. Please reload or use a lighter model file.');
+      stopLoadingWithError('3D rendering crashed on this device. Please open the link in your phone browser.');
     };
 
     renderer.domElement.addEventListener('webglcontextlost', onContextLost, false);
+    controls.addEventListener('change', renderScene);
 
     loader.load(
       modelUrl,
@@ -74,6 +92,7 @@ export function ThreeModelViewer({ modelUrl }: Props) {
         gltf.scene.position.sub(center);
 
         setLoading(false);
+        renderScene();
       },
       undefined,
       () => {
@@ -88,25 +107,15 @@ export function ThreeModelViewer({ modelUrl }: Props) {
       camera.aspect = nextWidth / nextHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(nextWidth, nextHeight);
+      renderScene();
     };
 
     window.addEventListener('resize', onResize);
 
-    const animate = () => {
-      if (!mounted) return;
-      if (!document.hidden) {
-        controls.update();
-        renderer.render(scene, camera);
-      }
-      frameId = window.requestAnimationFrame(animate);
-    };
-
-    frameId = window.requestAnimationFrame(animate);
-
     return () => {
       mounted = false;
-      window.cancelAnimationFrame(frameId);
       window.removeEventListener('resize', onResize);
+      controls.removeEventListener('change', renderScene);
       renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
       controls.dispose();
       renderer.dispose();
