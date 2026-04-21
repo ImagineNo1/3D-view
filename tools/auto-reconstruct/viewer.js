@@ -75,9 +75,9 @@ function buildGround(cfg, imageryBuffer) {
   const tw = cfg.terrain.width;
   const th = cfg.terrain.height;
   const terrainArr = cfg.terrain.heightmap;
-  const disp = new Float32Array(tw * th);
-  for (let i = 0; i < disp.length; i += 1) disp[i] = terrainArr[i] / 15;
-  const dispTex = new THREE.DataTexture(disp, tw, th, THREE.RedFormat, THREE.FloatType);
+  const disp = new Uint8Array(tw * th);
+  for (let i = 0; i < disp.length; i += 1) disp[i] = Math.max(0, Math.min(255, Math.round((terrainArr[i] / 15) * 255)));
+  const dispTex = new THREE.DataTexture(disp, tw, th, THREE.RedFormat, THREE.UnsignedByteType);
   dispTex.needsUpdate = true;
 
   const terrainWidthMeters = cfg.imagery.width * cfg.imagery.pixelSizeMeters;
