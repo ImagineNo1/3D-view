@@ -148,7 +148,7 @@ async function init() {
     new THREE.MeshStandardMaterial({
       map: texture,
       displacementMap: dispMap,
-      displacementScale: 12,
+      displacementScale: Number(cfg?.terrain?.maxHeightMeters) || 12,
       roughness: 0.95,
       metalness: 0
     })
@@ -160,7 +160,7 @@ async function init() {
   const group = addBuildings(cfg || {});
 
   const bounds = new THREE.Box3().setFromObject(group);
-  const center = bounds.getCenter(new THREE.Vector3());
+  const center = bounds.isEmpty() ? new THREE.Vector3(0, 0, 0) : bounds.getCenter(new THREE.Vector3());
   controls.target.copy(center);
   camera.lookAt(center);
 

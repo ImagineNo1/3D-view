@@ -47,6 +47,23 @@ function buildTerrainHeightField(heightmapBytes, width, height, maxHeightMeters 
   return { width, height, heights, maxHeightMeters };
 }
 
+
+function ensureTerrainVariance(terrain) {
+  const heights = Array.isArray(terrain?.heights) ? terrain.heights : [];
+  if (heights.length < 4) return terrain;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const h of heights) {
+    if (h < min) min = h;
+    if (h > max) max = h;
+  }
+
+  if ((max - min) > 1e-4) return terrain;
+
+  const varied = heights.map((_, i) => (i % Math.max(2, terrain.width)) * 0.02);
+  return { ...terrain, heights: varied };
+}
+
 function buildExtrudedBuildings(footprints = [], imageWidth, imageHeight, pixelScaleMeters = 1) {
   const cx = imageWidth / 2;
   const cy = imageHeight / 2;
@@ -88,7 +105,7 @@ function buildSceneGeometry({
   imageHeight,
   pixelScaleMeters = 1
 }) {
-  const terrain = buildTerrainHeightField(heightmapBytes, heightmapWidth, heightmapHeight, 12);
+  const terrain = ensureTerrainVariance(buildTerrainHeightField(heightmapBytes, heightmapWidth, heightmapHeight, 12));
   const buildings = buildExtrudedBuildings(footprints, imageWidth, imageHeight, pixelScaleMeters);
 
   return {

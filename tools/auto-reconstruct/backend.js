@@ -2,7 +2,7 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const { spawn } = require('node:child_process');
 const express = require('express');
-const { fetchAutoImagery, parseGoogleMapsLink } = require('./imagery');
+const { fetchAutoImagery, parseGoogleMapsUrl } = require('./imagery');
 const { extractBuildings } = require('./segmentation');
 const { buildSceneGeometry } = require('./geo');
 
@@ -121,7 +121,7 @@ app.post('/api/reconstruct', async (req, res) => {
 
   try {
     const { googleMapsUrl, uploadedImage } = req.body || {};
-    const loc = parseGoogleMapsLink(googleMapsUrl);
+    const loc = parseGoogleMapsUrl(googleMapsUrl);
 
     let imagery;
     if (uploadedImage) {
