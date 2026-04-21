@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auto Urban Reconstruction Viewer</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #0f172a; color: #e2e8f0; font-family: Inter, Arial, sans-serif; }
+      #root { width: 100vw; height: 100vh; }
+      #hud { position: fixed; top: 10px; left: 10px; z-index: 10; background: rgba(15,23,42,.8); padding: 8px 12px; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="hud">Auto Reconstruction Viewer</div>
+    <div id="root"></div>
+    <script type="module" src="/viewer.js"></script>
+  </body>
+</html>

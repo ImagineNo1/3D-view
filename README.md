@@ -38,3 +38,34 @@ Then login at `/admin/login` and change the credentials in DB if needed.
 - `npm run dev`
 - `npm run build`
 - `npm run lint`
+
+## Automatic GIS + CV Urban Reconstruction (Google Maps URL input)
+
+Implemented files:
+- `tools/auto-reconstruct/backend.js`
+- `tools/auto-reconstruct/imagery.js`
+- `tools/auto-reconstruct/segmentation.py`
+- `tools/auto-reconstruct/geo.js`
+- `tools/auto-reconstruct/viewer.html`
+- `tools/auto-reconstruct/viewer.js`
+
+### Run locally
+
+1. Install dependencies:
+   - `npm install express canvas`
+   - `python3 -m pip install opencv-python numpy`
+2. Set env var:
+   - `export GOOGLE_MAPS_API_KEY=your_key_here`
+3. Start reconstruction backend:
+   - `node tools/auto-reconstruct/backend.js`
+4. POST one input (`googleMapsUrl`) to generate outputs:
+   - `curl -X POST http://localhost:5050/api/reconstruct -H 'content-type: application/json' -d '{"googleMapsUrl":"https://www.google.com/maps/place/...@35.7454902,51.4024507,18z/"}'`
+5. Open viewer:
+   - `http://localhost:5050/viewer.html`
+
+Generated outputs are written under `tools/auto-reconstruct/output/`:
+- `satellite.png`
+- `footprints.json`
+- `roads.json`
+- `footprints_with_height.json`
+- `scene.json`
