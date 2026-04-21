@@ -11,7 +11,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-root.appendChild(renderer.domElement);
+(root || document.body).appendChild(renderer.domElement);
+console.log('[viewer] renderer initialized and canvas appended');
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x9fb3c8, 0.0012);
@@ -63,9 +64,18 @@ const roadTex = createRoadTexture();
 const grassTex = createGrassTexture();
 
 async function loadSceneData() {
-  const sceneRes = await fetch('/viewer-assets/scene.json');
+  const sceneCandidates = ['/viewer-assets/scene.json', './scene.json', 'scene.json'];
+  let sceneRes = null;
+  for (const path of sceneCandidates) {
+    const res = await fetch(path);
+    console.log(`[viewer] scene fetch ${path} -> ${res.status}`);
+    if (res.ok) { sceneRes = res; break; }
+  }
+  if (!sceneRes) throw new Error('scene.json not loaded');
   const cfg = await sceneRes.json();
+  if (!cfg || !Array.isArray(cfg.buildings)) throw new Error('scene.json invalid: missing buildings array');
   const imgRes = await fetch(cfg.imagery.path);
+  if (!imgRes.ok) throw new Error(`imagery not loaded: ${cfg.imagery.path}`);
   const imageryBuffer = new Uint8Array(await imgRes.arrayBuffer());
   return { cfg, imageryBuffer };
 }
@@ -204,6 +214,7 @@ function addModeUI() {
 }
 
 async function init() {
+  console.log('[viewer] init started');
   const { cfg, imageryBuffer } = await loadSceneData();
   buildGround(cfg, imageryBuffer);
   buildRoadGrid(cfg);
@@ -211,6 +222,7 @@ async function init() {
   const group = new THREE.Group();
   for (const b of cfg.buildings) group.add(makeBuildingMesh(b));
   scene.add(group);
+  console.log(`[viewer] terrain added=true buildings added=${group.children.length}`);
 
   if (cfg.buildings.length === 0) {
     const fail = new THREE.Mesh(new THREE.BoxGeometry(50, 100, 50), new THREE.MeshStandardMaterial({ color: 'red' }));
@@ -229,12 +241,13 @@ async function init() {
   controls.target.copy(center);
   camera.updateProjectionMatrix();
 
-  function tick() {
+  function animate() {
     controls.update();
     renderer.render(scene, camera);
-    requestAnimationFrame(tick);
+    requestAnimationFrame(animate);
   }
-  tick();
+  animate();
+  console.log('[viewer] render loop started');
 }
 
 init().catch((e) => {
