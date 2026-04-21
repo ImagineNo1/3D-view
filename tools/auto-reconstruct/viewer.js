@@ -5,6 +5,7 @@ import { createWallTexture, createRoofTexture, createRoadTexture, createGrassTex
 const root = document.getElementById('root');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -24,6 +25,7 @@ controls.enableDamping = true;
 
 const hemi = new THREE.HemisphereLight(0xb8d1ff, 0x6a5f4d, 0.55);
 scene.add(hemi);
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 
 const sun = new THREE.DirectionalLight(0xffffff, 1.35);
 sun.position.set(600, 900, 400);
@@ -34,6 +36,9 @@ sun.shadow.camera.right = 1200;
 sun.shadow.camera.top = 1200;
 sun.shadow.camera.bottom = -1200;
 scene.add(sun);
+const fillSun = new THREE.DirectionalLight(0xffffff, 1);
+fillSun.position.set(-450, 500, -320);
+scene.add(fillSun);
 
 function makeSky() {
   const geo = new THREE.SphereGeometry(9000, 48, 32);
@@ -78,6 +83,8 @@ function buildGround(cfg, imageryBuffer) {
   const disp = new Uint8Array(tw * th);
   for (let i = 0; i < disp.length; i += 1) disp[i] = Math.max(0, Math.min(255, Math.round((terrainArr[i] / 15) * 255)));
   const dispTex = new THREE.DataTexture(disp, tw, th, THREE.RedFormat, THREE.UnsignedByteType);
+  dispTex.format = THREE.RedFormat;
+  dispTex.type = THREE.UnsignedByteType;
   dispTex.needsUpdate = true;
 
   const terrainWidthMeters = cfg.imagery.width * cfg.imagery.pixelSizeMeters;
@@ -213,6 +220,14 @@ async function init() {
 
   addModeUI();
   setMode('day');
+
+  const box = new THREE.Box3().setFromObject(scene);
+  const size = box.getSize(new THREE.Vector3()).length();
+  const center = box.getCenter(new THREE.Vector3());
+  camera.position.copy(center).addScalar(size * 0.7);
+  camera.lookAt(center);
+  controls.target.copy(center);
+  camera.updateProjectionMatrix();
 
   function tick() {
     controls.update();
