@@ -37,6 +37,7 @@ type FacadePack = {
 export type GeneratedMaps = {
   aerialTexture: any;
   aerialDepth: any;
+  aerialCanvas: HTMLCanvasElement;
   facades: Record<'front' | 'back' | 'left' | 'right', FacadePack>;
 };
 
@@ -434,6 +435,7 @@ export async function generateFacadeTextures(model: BuildingModelData, tier: Tie
   return {
     aerialTexture: canvasToTexture(aerialCanvas),
     aerialDepth: buildDepthSemanticMaps(aerialCanvas, detailSize).depth,
+    aerialCanvas,
     facades: {
       front: makeFacadePack(frontRect, rightRect, detailSize),
       back: makeFacadePack(backRect, leftRect, detailSize),
@@ -584,33 +586,301 @@ export function createAdaptiveBuildingMesh(model: BuildingModelData, tier: TierC
   return group;
 }
 
-export function createSurroundingBuildings(model: BuildingModelData, tier: TierConfig) {
-  const group = new THREE.Group();
-  const radius = Math.max(model.width, model.depth) * 5.5;
-  const count = tier.tier === 'mobile' ? 26 : 55;
+function gaussianBlurGray(gray: Float32Array, width: number, height: number) {
+  const out = new Float32Array(gray.length);
+  const k = [1, 4, 6, 4, 1];
+  const temp = new Float32Array(gray.length);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let sum = 0;
+      let weight = 0;
+      for (let i = -2; i <= 2; i += 1) {
+        const xx = Math.min(width - 1, Math.max(0, x + i));
+        const w = k[i + 2];
+        sum += gray[y * width + xx] * w;
+        weight += w;
+      }
+      temp[y * width + x] = sum / weight;
+    }
+  }
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let sum = 0;
+      let weight = 0;
+      for (let i = -2; i <= 2; i += 1) {
+        const yy = Math.min(height - 1, Math.max(0, y + i));
+        const w = k[i + 2];
+        sum += temp[yy * width + x] * w;
+        weight += w;
+      }
+      out[y * width + x] = sum / weight;
+    }
+  }
+  return out;
+}
 
-  for (let i = 0; i < count; i += 1) {
-    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.25;
-    const dist = radius * (0.4 + Math.random() * 0.9);
-    const x = Math.cos(angle) * dist;
-    const z = Math.sin(angle) * dist;
+function computeEdgeMap(gray: Float32Array, width: number, height: number) {
+  const mag = new Float32Array(gray.length);
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const i = y * width + x;
+      const gx =
+        -gray[i - width - 1] - 2 * gray[i - 1] - gray[i + width - 1] +
+        gray[i - width + 1] + 2 * gray[i + 1] + gray[i + width + 1];
+      const gy =
+        -gray[i - width - 1] - 2 * gray[i - width] - gray[i - width + 1] +
+        gray[i + width - 1] + 2 * gray[i + width] + gray[i + width + 1];
+      mag[i] = Math.sqrt(gx * gx + gy * gy);
+    }
+  }
+  return mag;
+}
 
-    if (Math.abs(x) < model.width * 0.85 && Math.abs(z) < model.depth * 0.85) continue;
+function adaptiveThreshold(gray: Float32Array, width: number, height: number) {
+  const win = 9;
+  const out = new Uint8Array(gray.length);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let sum = 0;
+      let count = 0;
+      for (let yy = Math.max(0, y - win); yy <= Math.min(height - 1, y + win); yy += 1) {
+        for (let xx = Math.max(0, x - win); xx <= Math.min(width - 1, x + win); xx += 1) {
+          sum += gray[yy * width + xx];
+          count += 1;
+        }
+      }
+      const mean = sum / Math.max(count, 1);
+      out[y * width + x] = gray[y * width + x] > mean * 1.08 ? 1 : 0;
+    }
+  }
+  return out;
+}
 
-    const w = 4 + Math.random() * 10;
-    const d = 4 + Math.random() * 10;
-    const h = 6 + Math.random() * 38;
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(w, h, d, 1, Math.max(1, Math.floor(h / 4)), 1),
-      new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.58, 0.08, 0.52 + Math.random() * 0.15), roughness: 0.95, metalness: 0.02 })
-    );
-    mesh.position.set(x, h * 0.5, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
+function perpendicularDistance(p: [number, number], a: [number, number], b: [number, number]) {
+  const num = Math.abs((b[1] - a[1]) * p[0] - (b[0] - a[0]) * p[1] + b[0] * a[1] - b[1] * a[0]);
+  const den = Math.hypot(b[1] - a[1], b[0] - a[0]) || 1;
+  return num / den;
+}
+
+function douglasPeucker(points: [number, number][], epsilon: number): [number, number][] {
+  if (points.length <= 3) return points;
+  let maxDist = 0;
+  let idx = 0;
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const d = perpendicularDistance(points[i], points[0], points[points.length - 1]);
+    if (d > maxDist) {
+      maxDist = d;
+      idx = i;
+    }
+  }
+  if (maxDist < epsilon) return [points[0], points[points.length - 1]];
+  const left = douglasPeucker(points.slice(0, idx + 1), epsilon);
+  const right = douglasPeucker(points.slice(idx), epsilon);
+  return left.slice(0, -1).concat(right);
+}
+
+function createWindowTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#d0d4da';
+    ctx.fillRect(0, 0, 128, 128);
+    for (let y = 6; y < 128; y += 14) {
+      for (let x = 6; x < 128; x += 10) {
+        ctx.fillStyle = (x + y) % 3 === 0 ? '#8fa6b7' : '#a7bac9';
+        ctx.fillRect(x, y, 6, 9);
+      }
+    }
+  }
+  const tex = canvasToTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  return tex;
+}
+
+export function createSurroundingBuildings(model: BuildingModelData, tier: TierConfig, maps: GeneratedMaps) {
+  const size = tier.tier === 'mobile' ? 192 : 256;
+  const analysisCanvas = document.createElement('canvas');
+  analysisCanvas.width = size;
+  analysisCanvas.height = size;
+  const ctx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return { group: new THREE.Group(), update: () => {} };
+  ctx.drawImage(maps.aerialCanvas, 0, 0, size, size);
+  const image = ctx.getImageData(0, 0, size, size);
+  const gray = new Float32Array(size * size);
+  const roadMask = new Uint8Array(size * size);
+
+  for (let i = 0; i < size * size; i += 1) {
+    const r = image.data[i * 4] / 255;
+    const g = image.data[i * 4 + 1] / 255;
+    const b = image.data[i * 4 + 2] / 255;
+    gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const sat = max === 0 ? 0 : (max - min) / max;
+    roadMask[i] = sat < 0.12 && gray[i] > 0.45 && gray[i] < 0.78 ? 1 : 0;
   }
 
-  return group;
+  const blurred = gaussianBlurGray(gray, size, size);
+  const edges = computeEdgeMap(blurred, size, size);
+  const thresh = adaptiveThreshold(blurred, size, size);
+  const edgeMask = new Uint8Array(size * size);
+  for (let i = 0; i < edgeMask.length; i += 1) {
+    edgeMask[i] = edges[i] > 0.075 && thresh[i] ? 1 : 0;
+  }
+
+  const visited = new Uint8Array(size * size);
+  const candidates: { cx: number; cy: number; w: number; h: number; area: number }[] = [];
+  const queue: number[] = [];
+  const neighborOffsets = [-1, 1, -size, size];
+  for (let i = 0; i < size * size; i += 1) {
+    if (!edgeMask[i] || visited[i]) continue;
+    queue.length = 0;
+    queue.push(i);
+    visited[i] = 1;
+    let minX = size;
+    let minY = size;
+    let maxX = 0;
+    let maxY = 0;
+    let area = 0;
+    let roadHits = 0;
+
+    while (queue.length) {
+      const idx = queue.pop() as number;
+      const y = Math.floor(idx / size);
+      const x = idx - y * size;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+      area += 1;
+      roadHits += roadMask[idx];
+      for (const offset of neighborOffsets) {
+        const n = idx + offset;
+        if (n < 0 || n >= size * size || visited[n] || !edgeMask[n]) continue;
+        visited[n] = 1;
+        queue.push(n);
+      }
+    }
+
+    const rawContour: [number, number][] = [
+      [minX, minY],
+      [maxX, minY],
+      [maxX, maxY],
+      [minX, maxY],
+      [minX, minY]
+    ];
+    const simplified = douglasPeucker(rawContour, 1.5);
+    const xs = simplified.map((p) => p[0]);
+    const ys = simplified.map((p) => p[1]);
+    const w = Math.max(...xs) - Math.min(...xs) + 1;
+    const h = Math.max(...ys) - Math.min(...ys) + 1;
+    if (area < 20 || w < 5 || h < 5 || roadHits / area > 0.4) continue;
+    candidates.push({ cx: (minX + maxX) * 0.5, cy: (minY + maxY) * 0.5, w, h, area });
+  }
+
+  const radius = Math.max(model.width, model.depth) * 5.5;
+  const sampleScale = radius / size;
+  const mainHalfW = model.width * 0.6;
+  const mainHalfD = model.depth * 0.6;
+  const maxCount = tier.tier === 'mobile' ? 140 : 260;
+  const sorted = candidates.sort((a, b) => b.area - a.area).slice(0, maxCount);
+  const templateShape = new THREE.Shape([
+    new THREE.Vector2(-0.5, -0.5),
+    new THREE.Vector2(0.5, -0.5),
+    new THREE.Vector2(0.5, 0.5),
+    new THREE.Vector2(-0.5, 0.5)
+  ]);
+  const baseGeometry = new THREE.ExtrudeGeometry(templateShape, { depth: 1, bevelEnabled: false, steps: 1 });
+  baseGeometry.rotateX(-Math.PI / 2);
+  baseGeometry.translate(0, 0.5, 0);
+
+  const instanced = new THREE.InstancedMesh(
+    baseGeometry,
+    new THREE.MeshStandardMaterial({
+      color: 0xcccccc,
+      roughness: 0.9,
+      metalness: 0.05,
+      map: createWindowTexture(),
+      aoMapIntensity: tier.aoStrength
+    }),
+    sorted.length
+  );
+  instanced.castShadow = true;
+  instanced.receiveShadow = true;
+  instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  const transforms: { pos: any; scale: any }[] = [];
+  const dummy = new THREE.Object3D();
+  let visibleCount = 0;
+  const solarAngle = THREE.MathUtils.degToRad(38);
+  const sunDir = new THREE.Vector2(-0.82, 0.58).normalize();
+
+  for (const c of sorted) {
+    const px = (c.cx - size * 0.5) * sampleScale;
+    const pz = (c.cy - size * 0.5) * sampleScale;
+    if (Math.abs(px) < mainHalfW && Math.abs(pz) < mainHalfD) continue;
+    const ww = Math.max(3, c.w * sampleScale * 0.8);
+    const dd = Math.max(3, c.h * sampleScale * 0.8);
+
+    const startX = Math.floor(Math.min(size - 1, Math.max(0, c.cx)));
+    const startY = Math.floor(Math.min(size - 1, Math.max(0, c.cy)));
+    let shadowLength = 0;
+    for (let s = 1; s < 26; s += 1) {
+      const sx = Math.floor(startX + sunDir.x * s);
+      const sy = Math.floor(startY + sunDir.y * s);
+      if (sx < 0 || sy < 0 || sx >= size || sy >= size) break;
+      const lum = gray[sy * size + sx];
+      if (lum < 0.2) shadowLength = s;
+    }
+    const shadowMeters = shadowLength * sampleScale;
+    const fallback = THREE.MathUtils.clamp(5 + Math.sqrt(ww * dd) * 0.9, 5, 70);
+    const height = THREE.MathUtils.clamp(shadowLength > 2 ? shadowMeters / Math.tan(solarAngle) : fallback, 5, 70);
+
+    transforms.push({
+      pos: new THREE.Vector3(px, height * 0.5, pz),
+      scale: new THREE.Vector3(ww, height, dd)
+    });
+  }
+
+  transforms.forEach((t, i) => {
+    dummy.position.copy(t.pos);
+    dummy.scale.copy(t.scale);
+    dummy.updateMatrix();
+    instanced.setMatrixAt(i, dummy.matrix);
+    visibleCount += 1;
+  });
+  instanced.count = visibleCount;
+  instanced.instanceMatrix.needsUpdate = true;
+
+  const group = new THREE.Group();
+  group.add(instanced);
+
+  const frustum = new THREE.Frustum();
+  const proj = new THREE.Matrix4();
+  const update = (camera: any) => {
+    proj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    frustum.setFromProjectionMatrix(proj);
+    let n = 0;
+    for (let i = 0; i < transforms.length; i += 1) {
+      const t = transforms[i];
+      if (t.pos.length() > radius * 1.25) continue;
+      const sphere = new THREE.Sphere(t.pos, Math.max(t.scale.x, t.scale.z));
+      if (!frustum.intersectsSphere(sphere)) continue;
+      dummy.position.copy(t.pos);
+      dummy.scale.copy(t.scale);
+      dummy.updateMatrix();
+      instanced.setMatrixAt(n, dummy.matrix);
+      n += 1;
+    }
+    instanced.count = n;
+    instanced.instanceMatrix.needsUpdate = true;
+  };
+
+  return { group, update };
 }
 
 export function createContactShadowTexture() {

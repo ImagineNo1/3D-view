@@ -94,6 +94,7 @@ export default function GeneratedBuildingModel({
     let disposeRenderer = () => {};
     let frameId = 0;
     let mounted = true;
+    let updateSurroundings: ((camera: any) => void) | null = null;
 
     const setup = async () => {
       if (!containerRef.current || !mounted) return;
@@ -200,8 +201,9 @@ export default function GeneratedBuildingModel({
       marker.castShadow = true;
       scene.add(marker);
 
-      const neighbors = createSurroundingBuildings(model, tier);
-      scene.add(neighbors);
+      const neighbors = createSurroundingBuildings(model, tier, maps);
+      scene.add(neighbors.group);
+      updateSurroundings = neighbors.update;
 
       if (tier.useComposer) {
         composer = new EffectComposer(renderer);
@@ -243,6 +245,7 @@ export default function GeneratedBuildingModel({
         controls.autoRotate = autoRotateRef.current && viewModeRef.current === '3d';
         controls.autoRotateSpeed = tier.tier === 'mobile' ? 0.5 : 0.85;
         controls.update();
+        updateSurroundings?.(camera);
         if (composer) composer.render();
         else renderer?.render(scene, camera);
       };
