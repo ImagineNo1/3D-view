@@ -1,178 +1,151 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { spawn } = require('node:child_process');
 const express = require('express');
-const { fetchSatelliteFromGoogleMapsURL } = require('./imagery');
+const { fetchCityImagery } = require('./imagery');
+const { extractBuildings } = require('./segmentation');
+const { addSyntheticBuildings } = require('./urban-generator');
+const { generateTerrain } = require('./terrain');
+const { transformToWorld } = require('./geo');
 
 const PORT = Number(process.env.PORT || 5050);
 const app = express();
-
 const memoryAssets = new Map();
+let latestDebug = {
+  imagery: { ok: false, resolution: null, noiseFallback: true },
+  segmentation: { detected: 0 },
+  syntheticBuildings: { added: 0 },
+  terrain: { generated: false },
+  totalBuildings: 0,
+  errors: []
+};
 
-app.use(express.json({ limit: '6mb' }));
+app.use(express.json({ limit: '15mb' }));
 
-function setAsset(name, buffer, contentType = 'application/octet-stream') {
-  memoryAssets.set(name, { buffer: Buffer.from(buffer), contentType, updatedAt: Date.now() });
+function setAsset(name, value, contentType) {
+  memoryAssets.set(name, { value, contentType });
 }
 
-async function safeWriteTmp(filePath, content) {
+function parseGoogleMapsURL(url) {
   try {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, content);
-    return true;
+    const decoded = decodeURIComponent(url || '');
+    const m = decoded.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(\d+(?:\.\d+)?)z/);
+    if (m) return { lat: Number(m[1]), lon: Number(m[2]), zoom: Math.round(Number(m[3])) };
+    const u = new URL(decoded);
+    const q = u.searchParams.get('q') || u.searchParams.get('query') || '';
+    const qm = q.match(/(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+    if (qm) return { lat: Number(qm[1]), lon: Number(qm[2]), zoom: Number(u.searchParams.get('z') || 17) };
   } catch {
-    return false;
+    // ignore
   }
-}
-
-async function readDebugJson(filePath) {
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function fallbackGeometry() {
-  const poly = [
-    [64, 64],
-    [192, 64],
-    [192, 192],
-    [64, 192],
-    [64, 64]
-  ];
-  return {
-    footprints: [{ id: 0, polygon: poly }],
-    roads: [{ id: 0, polygon: [[0, 120], [256, 120], [256, 136], [0, 136], [0, 120]] }],
-    footprints_with_height: [{ id: 0, polygon: poly, height_m: 18 }],
-    meta: { imageWidth: 256, imageHeight: 256 }
-  };
-}
-
-function runPythonSegmentation({ imageBuffer, outputDir }) {
-  return new Promise((resolve) => {
-    const proc = spawn('python3', [
-      path.join(__dirname, 'segmentation.py'),
-      '--image-base64', imageBuffer.toString('base64'),
-      '--output-dir', outputDir,
-      '--json-stdout'
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (d) => {
-      stdout += d.toString();
-    });
-    proc.stderr.on('data', (d) => {
-      stderr += d.toString();
-    });
-
-    proc.on('close', (code) => {
-      if (code !== 0) {
-        resolve({ ok: false, error: `segmentation exit=${code}`, stderr, stdout, payload: fallbackGeometry() });
-        return;
-      }
-      try {
-        const payload = JSON.parse(stdout.trim() || '{}');
-        resolve({ ok: Boolean(payload.ok), stderr, stdout, payload });
-      } catch (err) {
-        resolve({ ok: false, error: err.message, stderr, stdout, payload: fallbackGeometry() });
-      }
-    });
-  });
+  return { lat: 40.7128, lon: -74.006, zoom: 17 };
 }
 
 app.get('/viewer-assets/:name', (req, res) => {
   const asset = memoryAssets.get(req.params.name);
-  if (!asset) {
-    res.status(404).json({ error: `asset not found: ${req.params.name}` });
-    return;
-  }
-  res.type(asset.contentType).send(asset.buffer);
+  if (!asset) return res.status(404).json({ error: 'missing asset' });
+  res.type(asset.contentType).send(asset.value);
 });
 
 app.post('/api/reconstruct', async (req, res) => {
+  const errors = [];
   try {
-    const { googleMapsUrl, mainBuilding } = req.body || {};
-    const outputDir = process.env.VERCEL ? '/tmp/auto-reconstruct' : path.join(process.cwd(), 'tools/auto-reconstruct/output');
+    const { googleMapsUrl } = req.body || {};
+    const { lat, lon, zoom } = parseGoogleMapsURL(googleMapsUrl);
 
-    const imageResult = await fetchSatelliteFromGoogleMapsURL(googleMapsUrl || '');
-    const imageBuffer = imageResult.buffer && imageResult.buffer.length
-      ? imageResult.buffer
-      : Buffer.from('');
-
-    const segmentationResult = imageBuffer.length
-      ? await runPythonSegmentation({ imageBuffer, outputDir })
-      : { ok: false, payload: fallbackGeometry(), error: 'empty imagery buffer' };
-
-    const geo = segmentationResult.payload && segmentationResult.payload.footprints_with_height?.length
-      ? segmentationResult.payload
-      : fallbackGeometry();
-
-    setAsset('satellite.png', imageBuffer.length ? imageBuffer : Buffer.from(''), 'image/png');
-    setAsset('footprints.json', Buffer.from(JSON.stringify(geo.footprints || [], null, 2)), 'application/json');
-    setAsset('roads.json', Buffer.from(JSON.stringify(geo.roads || [], null, 2)), 'application/json');
-    setAsset('footprints_with_height.json', Buffer.from(JSON.stringify(geo.footprints_with_height || [], null, 2)), 'application/json');
-
-    const sceneConfig = {
-      safeMode: true,
-      mapCenter: imageResult.center,
-      satellitePath: '/viewer-assets/satellite.png',
-      footprintsPath: '/viewer-assets/footprints_with_height.json',
-      roadsPath: '/viewer-assets/roads.json',
-      mainBuilding: mainBuilding || null
-    };
-
-    const sceneText = JSON.stringify(sceneConfig, null, 2);
-    setAsset('scene.json', Buffer.from(sceneText), 'application/json');
-    await safeWriteTmp(path.join(outputDir, 'scene.json'), sceneText);
-
-    const buildingMeshesCount = Array.isArray(geo.footprints_with_height) ? geo.footprints_with_height.length : 0;
-    const hasGround = true;
-    const numMeshes = 1 + buildingMeshesCount;
-    const hasBuildings = buildingMeshesCount > 0;
-    const sceneDebug = {
-      numMeshes,
-      hasGround,
-      hasBuildings,
-      sourceStage: segmentationResult.ok ? 'segmentation' : 'fallback',
-      errors: [
-        ...(imageResult.errors || []).map((e) => `${e.provider}: ${e.message}`),
-        ...(segmentationResult.error ? [segmentationResult.error] : [])
-      ]
-    };
-    console.log(`[scene-debug] numMeshes=${numMeshes} hasGround=${hasGround} buildingMeshes=${buildingMeshesCount}`);
-    if (numMeshes < 2) {
-      console.warn('[scene-debug] WARNING: scene.json has < 2 meshes');
+    let imagery;
+    try {
+      imagery = await fetchCityImagery(lat, lon, zoom);
+    } catch (err) {
+      errors.push(`imagery: ${err.message || err}`);
+      imagery = await fetchCityImagery(40.7128, -74.006, 17);
     }
-    await safeWriteTmp('/tmp/scene-debug.json', JSON.stringify(sceneDebug, null, 2));
 
-    res.json({
-      ok: true,
-      sceneConfig,
-      diagnostics: {
-        imageryMode: imageResult.mode,
-        imageryErrors: imageResult.errors || [],
-        segmentationOk: segmentationResult.ok,
-        segmentationError: segmentationResult.error || null
-      },
-      viewerURL: '/viewer.html'
+    let segmented;
+    try {
+      segmented = extractBuildings({ buffer: imagery.buffer, width: imagery.width, height: imagery.height });
+    } catch (err) {
+      errors.push(`segmentation: ${err.message || err}`);
+      segmented = { buildings: [] };
+    }
+
+    const initialDetected = segmented.buildings.length;
+    let cityBuildings = segmented.buildings;
+    let syntheticAdded = 0;
+    if (cityBuildings.length < 30) {
+      const densified = addSyntheticBuildings(cityBuildings, imagery.width, imagery.height, imagery.pixelSizeMeters);
+      cityBuildings = densified.buildings;
+      syntheticAdded = densified.added;
+    }
+    if (cityBuildings.length < 80) {
+      const densifiedAgain = addSyntheticBuildings(cityBuildings, imagery.width, imagery.height, imagery.pixelSizeMeters);
+      cityBuildings = densifiedAgain.buildings;
+      syntheticAdded += densifiedAgain.added;
+    }
+
+    const terrain = generateTerrain({
+      buffer: imagery.buffer,
+      width: imagery.width,
+      height: imagery.height,
+      pixelSizeMeters: imagery.pixelSizeMeters
     });
+
+    const world = transformToWorld({
+      buildings: cityBuildings,
+      terrain,
+      width: imagery.width,
+      height: imagery.height,
+      pixelSizeMeters: imagery.pixelSizeMeters
+    });
+
+    const scene = {
+      mapCenter: { lat, lon, zoom },
+      imagery: {
+        path: '/viewer-assets/imagery.rgba',
+        width: imagery.width,
+        height: imagery.height,
+        pixelSizeMeters: imagery.pixelSizeMeters
+      },
+      terrain: {
+        width: terrain.width,
+        height: terrain.height,
+        scaleMeters: terrain.scaleMeters,
+        heightmap: Array.from(terrain.heightmap)
+      },
+      buildings: world.buildings,
+      roads: [],
+      environment: { sky: true, lights: true, ground: true }
+    };
+
+    setAsset('imagery.rgba', imagery.buffer, 'application/octet-stream');
+    setAsset('scene.json', JSON.stringify(scene), 'application/json');
+    await fs.writeFile('/tmp/scene.json', JSON.stringify(scene));
+
+    latestDebug = {
+      imagery: { ok: true, resolution: [imagery.width, imagery.height], noiseFallback: imagery.noiseFallback },
+      segmentation: { detected: initialDetected },
+      syntheticBuildings: { added: syntheticAdded },
+      terrain: { generated: true },
+      totalBuildings: world.buildings.length,
+      errors
+    };
+
+    res.json({ ok: true, scenePath: '/viewer-assets/scene.json', totalBuildings: world.buildings.length });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'reconstruction failed' });
+    errors.push(err.message || String(err));
+    latestDebug = {
+      imagery: { ok: false, resolution: [1280, 1280], noiseFallback: true },
+      segmentation: { detected: 0 },
+      syntheticBuildings: { added: 0 },
+      terrain: { generated: false },
+      totalBuildings: 0,
+      errors
+    };
+    res.status(500).json({ ok: false, error: err.message || 'failed' });
   }
 });
 
-app.get('/api/debug-report', async (_req, res) => {
-  const [imagery, segmentation, geo, scene] = await Promise.all([
-    readDebugJson('/tmp/imagery-debug.json'),
-    readDebugJson('/tmp/segmentation-debug.json'),
-    readDebugJson('/tmp/geo-debug.json'),
-    readDebugJson('/tmp/scene-debug.json')
-  ]);
-  res.json({ imagery, segmentation, geo, scene });
+app.get('/api/debug-report', (_req, res) => {
+  res.json(latestDebug);
 });
 
 app.get('/viewer.html', async (_req, res) => {
@@ -182,6 +155,11 @@ app.get('/viewer.html', async (_req, res) => {
 
 app.get('/viewer.js', async (_req, res) => {
   const js = await fs.readFile(path.join(__dirname, 'viewer.js'), 'utf8');
+  res.type('application/javascript').send(js);
+});
+
+app.get('/textures.js', async (_req, res) => {
+  const js = await fs.readFile(path.join(__dirname, 'textures.js'), 'utf8');
   res.type('application/javascript').send(js);
 });
 

@@ -1,231 +1,229 @@
 import * as THREE from 'https://unpkg.com/three@0.180.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.180.0/examples/jsm/controls/OrbitControls.js';
-import { EffectComposer } from 'https://unpkg.com/three@0.180.0/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'https://unpkg.com/three@0.180.0/examples/jsm/postprocessing/RenderPass.js';
-import { SSAOPass } from 'https://unpkg.com/three@0.180.0/examples/jsm/postprocessing/SSAOPass.js';
-import { buildSurroundingMeshes } from './geo.js';
-console.log('[viewer] viewer.js loaded');
+import { createWallTexture, createRoofTexture, createRoadTexture, createGrassTexture } from '/textures.js';
 
 const root = document.getElementById('root');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 root.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#b8c8da');
+scene.fog = new THREE.FogExp2(0x9fb3c8, 0.0012);
 
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 10000);
-camera.position.set(180, 140, 180);
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 20000);
+camera.position.set(500, 380, 500);
 
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
 controls.enableDamping = true;
-controls.target.set(0, 20, 0);
 
-scene.add(new THREE.HemisphereLight(0xd8e8ff, 0xb09f8b, 0.45));
-const sun = new THREE.DirectionalLight(0xffffff, 1.4);
-sun.position.set(120, 240, 80);
+const hemi = new THREE.HemisphereLight(0xb8d1ff, 0x6a5f4d, 0.55);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.35);
+sun.position.set(600, 900, 400);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -300;
-sun.shadow.camera.right = 300;
-sun.shadow.camera.top = 300;
-sun.shadow.camera.bottom = -300;
-scene.add(sun, new THREE.AmbientLight(0xffffff, 0.42));
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.camera.left = -1200;
+sun.shadow.camera.right = 1200;
+sun.shadow.camera.top = 1200;
+sun.shadow.camera.bottom = -1200;
+scene.add(sun);
 
-async function loadSceneConfig() {
-  console.log('[viewer] fetching scene.json');
-  const res = await fetch('/viewer-assets/scene.json');
-  if (!res.ok) {
-    return {
-      safeMode: true,
-      mapCenter: { lat: 0, lng: 0, zoom: 2 },
-      satellitePath: null,
-      footprintsPath: null,
-      roadsPath: null,
-      mainBuilding: null
-    };
-  }
-  return res.json();
-}
-
-function makeGradientTexture() {
-  const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 256;
-  const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0, '#7fa2c9');
-  g.addColorStop(0.5, '#89aa7f');
-  g.addColorStop(1, '#6e8d5e');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 256);
-
-  for (let i = 0; i < 30; i += 1) {
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    ctx.fillRect((i * 17) % 256, (i * 31) % 256, 40, 8);
-  }
-
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 2);
-  return tex;
-}
-
-function loadTextureOrFallback(path) {
-  return new Promise((resolve) => {
-    if (!path) {
-      resolve(makeGradientTexture());
-      return;
-    }
-
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      path,
-      (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        resolve(tex);
-      },
-      undefined,
-      () => resolve(makeGradientTexture())
-    );
+function makeSky() {
+  const geo = new THREE.SphereGeometry(9000, 48, 32);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      topColor: { value: new THREE.Color('#7fa8d6') },
+      bottomColor: { value: new THREE.Color('#d6e5f5') },
+      offset: { value: 350 },
+      exponent: { value: 0.85 }
+    },
+    vertexShader: `varying vec3 vWorldPosition; void main(){ vec4 worldPosition = modelMatrix * vec4(position, 1.0); vWorldPosition = worldPosition.xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);}`,
+    fragmentShader: `uniform vec3 topColor; uniform vec3 bottomColor; uniform float offset; uniform float exponent; varying vec3 vWorldPosition; void main(){ float h = normalize(vWorldPosition + offset).y; gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h,0.0), exponent), 0.0)),1.0); }`
   });
+  scene.add(new THREE.Mesh(geo, mat));
+}
+makeSky();
+
+const wallTex = createWallTexture();
+const roofTex = createRoofTexture();
+const roadTex = createRoadTexture();
+const grassTex = createGrassTexture();
+
+async function loadSceneData() {
+  const sceneRes = await fetch('/viewer-assets/scene.json');
+  const cfg = await sceneRes.json();
+  const imgRes = await fetch(cfg.imagery.path);
+  const imageryBuffer = new Uint8Array(await imgRes.arrayBuffer());
+  return { cfg, imageryBuffer };
 }
 
-function createMainBuilding(mainBuilding) {
-  if (!mainBuilding) return new THREE.Group();
-  const group = new THREE.Group();
-  const width = mainBuilding.width || 24;
-  const depth = mainBuilding.depth || 20;
-  const height = mainBuilding.height || 40;
+function buildGround(cfg, imageryBuffer) {
+  const { width, height } = cfg.imagery;
+  const rgba = new Uint8Array(imageryBuffer);
+  const tex = new THREE.DataTexture(rgba, width, height, THREE.RGBAFormat);
+  tex.needsUpdate = true;
+  tex.colorSpace = THREE.SRGBColorSpace;
 
-  const core = new THREE.Mesh(
-    new THREE.BoxGeometry(width, height, depth),
-    new THREE.MeshStandardMaterial({ color: '#d4dce8', roughness: 0.78, metalness: 0.08 })
-  );
-  core.position.set(0, height * 0.5, 0);
-  core.castShadow = true;
-  core.receiveShadow = true;
-  group.add(core);
-  return group;
-}
+  const tw = cfg.terrain.width;
+  const th = cfg.terrain.height;
+  const terrainArr = cfg.terrain.heightmap;
+  const disp = new Float32Array(tw * th);
+  for (let i = 0; i < disp.length; i += 1) disp[i] = terrainArr[i] / 15;
+  const dispTex = new THREE.DataTexture(disp, tw, th, THREE.RedFormat, THREE.FloatType);
+  dispTex.needsUpdate = true;
 
-function defaultRoads() {
-  return [{
-    polygon: [[0, 250], [700, 250], [700, 280], [0, 280], [0, 250]]
-  }];
-}
+  const terrainWidthMeters = cfg.imagery.width * cfg.imagery.pixelSizeMeters;
+  const terrainHeightMeters = cfg.imagery.height * cfg.imagery.pixelSizeMeters;
 
-function createRoadMeshes(roads, imageWidth, imageHeight, worldSize) {
-  const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: '#636a72', roughness: 0.97, metalness: 0.02 });
-  const source = Array.isArray(roads) && roads.length ? roads : defaultRoads();
-
-  for (const road of source) {
-    const pts = (road.polygon || []).map(([x, y]) => new THREE.Vector2(((x / imageWidth) - 0.5) * worldSize, ((y / imageHeight) - 0.5) * worldSize));
-    if (pts.length < 4) continue;
-    const shape = new THREE.Shape(pts);
-    const geom = new THREE.ShapeGeometry(shape);
-    geom.rotateX(-Math.PI / 2);
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.position.y = 0.05;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-  }
-
-  if (!group.children.length) {
-    const fallback = new THREE.Mesh(new THREE.PlaneGeometry(worldSize, 20), mat);
-    fallback.rotation.x = -Math.PI / 2;
-    fallback.position.y = 0.05;
-    group.add(fallback);
-  }
-
-  return group;
-}
-
-async function fetchJsonOr(path, fallback) {
-  if (!path) return fallback;
-  try {
-    const res = await fetch(path);
-    if (!res.ok) return fallback;
-    return await res.json();
-  } catch {
-    return fallback;
-  }
-}
-
-function defaultFootprints() {
-  return [
-    { id: 0, polygon: [[160, 160], [310, 160], [310, 320], [160, 320], [160, 160]], height_m: 18 },
-    { id: 1, polygon: [[360, 220], [480, 220], [480, 360], [360, 360], [360, 220]], height_m: 24 }
-  ];
-}
-
-async function init() {
-  const cfg = await loadSceneConfig();
-
-  const satTex = await loadTextureOrFallback(cfg.satellitePath);
-  const worldSize = 700;
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(worldSize, worldSize, 1, 1),
-    new THREE.MeshStandardMaterial({ map: satTex, roughness: 1, metalness: 0.0 })
+    new THREE.PlaneGeometry(terrainWidthMeters, terrainHeightMeters, tw - 1, th - 1),
+    new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 1,
+      metalness: 0,
+      displacementMap: dispTex,
+      displacementScale: 15
+    })
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const [footprints, roads] = await Promise.all([
-    fetchJsonOr(cfg.footprintsPath, defaultFootprints()),
-    fetchJsonOr(cfg.roadsPath, defaultRoads())
-  ]);
-
-  const surroundings = buildSurroundingMeshes(Array.isArray(footprints) && footprints.length ? footprints : defaultFootprints(), {
-    imageWidth: 1024,
-    imageHeight: 1024,
-    worldSize,
-    material: new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.9, metalness: 0.05 })
-  });
-  scene.add(surroundings);
-  scene.add(createRoadMeshes(roads, 1024, 1024, worldSize));
-  scene.add(createMainBuilding(cfg.mainBuilding));
-  const buildingCount = surroundings.children.length;
-  console.log(`[viewer] objects after loading=${scene.children.length} buildings=${buildingCount}`);
-  if (buildingCount === 0) {
-    console.warn('WARNING: scene.json is EMPTY');
-    const redPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(120, 120),
-      new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
-    );
-    redPlane.rotation.x = -Math.PI / 2;
-    redPlane.position.y = 0.2;
-    scene.add(redPlane);
-  }
-
-  const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-  const ssao = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
-  ssao.kernelRadius = 14;
-  ssao.minDistance = 0.002;
-  ssao.maxDistance = 0.12;
-  composer.addPass(ssao);
-
-  const animate = () => {
-    requestAnimationFrame(animate);
-    controls.update();
-    composer.render();
-  };
-  animate();
+  const green = new THREE.Mesh(
+    new THREE.PlaneGeometry(terrainWidthMeters * 1.05, terrainHeightMeters * 1.05),
+    new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1, metalness: 0 })
+  );
+  green.rotation.x = -Math.PI / 2;
+  green.position.y = -0.4;
+  green.receiveShadow = true;
+  scene.add(green);
 }
 
-init().catch((err) => {
-  console.error(err);
-  const hud = document.getElementById('hud');
-  hud.textContent = `Failed: ${err.message}`;
+function makeBuildingMesh(b) {
+  const shape = new THREE.Shape();
+  b.footprint.forEach(([x, z], i) => {
+    if (i === 0) shape.moveTo(x, z);
+    else shape.lineTo(x, z);
+  });
+  const geom = new THREE.ExtrudeGeometry(shape, { depth: b.height, bevelEnabled: false });
+  geom.rotateX(-Math.PI / 2);
+  geom.translate(0, b.height, 0);
+
+  const mat = new THREE.MeshStandardMaterial({
+    map: wallTex,
+    roughness: 0.78,
+    metalness: 0.05,
+    emissive: 0x000000
+  });
+
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  const roof = new THREE.Mesh(
+    new THREE.ShapeGeometry(shape),
+    new THREE.MeshStandardMaterial({ map: roofTex, roughness: 0.9, metalness: 0.04, color: new THREE.Color().setHSL(Math.random(), 0.2, 0.6) })
+  );
+  roof.rotation.x = -Math.PI / 2;
+  roof.position.y = b.height + 0.2;
+  roof.receiveShadow = true;
+
+  const group = new THREE.Group();
+  group.add(mesh, roof);
+  return group;
+}
+
+function buildRoadGrid(cfg) {
+  const roads = new THREE.Group();
+  const terrainWidthMeters = cfg.imagery.width * cfg.imagery.pixelSizeMeters;
+  const terrainHeightMeters = cfg.imagery.height * cfg.imagery.pixelSizeMeters;
+
+  for (let i = -5; i <= 5; i += 1) {
+    const roadX = new THREE.Mesh(new THREE.PlaneGeometry(12, terrainHeightMeters), new THREE.MeshStandardMaterial({ map: roadTex, roughness: 1 }));
+    roadX.rotation.x = -Math.PI / 2;
+    roadX.position.set(i * 90, 0.03, 0);
+    roads.add(roadX);
+
+    const roadZ = new THREE.Mesh(new THREE.PlaneGeometry(terrainWidthMeters, 12), new THREE.MeshStandardMaterial({ map: roadTex, roughness: 1 }));
+    roadZ.rotation.x = -Math.PI / 2;
+    roadZ.position.set(0, 0.03, i * 90);
+    roads.add(roadZ);
+  }
+  scene.add(roads);
+}
+
+function setMode(mode) {
+  if (mode === 'night') {
+    sun.intensity = 0.18;
+    hemi.intensity = 0.18;
+    scene.fog.color.set('#28395f');
+    renderer.toneMappingExposure = 0.65;
+    scene.traverse((obj) => {
+      if (obj.material?.emissive) obj.material.emissive.setHex(0x334466);
+    });
+  } else if (mode === 'sunset') {
+    sun.intensity = 0.9;
+    hemi.intensity = 0.4;
+    scene.fog.color.set('#cc8f66');
+    renderer.toneMappingExposure = 0.95;
+  } else {
+    sun.intensity = 1.35;
+    hemi.intensity = 0.55;
+    scene.fog.color.set('#9fb3c8');
+    renderer.toneMappingExposure = 1.0;
+    scene.traverse((obj) => {
+      if (obj.material?.emissive) obj.material.emissive.setHex(0x000000);
+    });
+  }
+}
+
+function addModeUI() {
+  const panel = document.createElement('div');
+  panel.style.cssText = 'position:fixed;top:10px;right:10px;z-index:10;background:#111a;border-radius:8px;padding:8px;color:#fff;font:12px sans-serif;';
+  panel.innerHTML = '<button data-m="day">Day</button> <button data-m="sunset">Sunset</button> <button data-m="night">Night</button>';
+  panel.querySelectorAll('button').forEach((b) => {
+    b.style.margin = '2px';
+    b.onclick = () => setMode(b.getAttribute('data-m'));
+  });
+  document.body.appendChild(panel);
+}
+
+async function init() {
+  const { cfg, imageryBuffer } = await loadSceneData();
+  buildGround(cfg, imageryBuffer);
+  buildRoadGrid(cfg);
+
+  const group = new THREE.Group();
+  for (const b of cfg.buildings) group.add(makeBuildingMesh(b));
+  scene.add(group);
+
+  if (cfg.buildings.length === 0) {
+    const fail = new THREE.Mesh(new THREE.BoxGeometry(50, 100, 50), new THREE.MeshStandardMaterial({ color: 'red' }));
+    fail.position.y = 50;
+    scene.add(fail);
+  }
+
+  addModeUI();
+  setMode('day');
+
+  function tick() {
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+init().catch((e) => {
+  console.error('viewer failed', e);
 });
 
 window.addEventListener('resize', () => {
