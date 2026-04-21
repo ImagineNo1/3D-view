@@ -90,18 +90,7 @@ export default function GeneratedBuildingModel({
       if (!containerRef.current || !mounted) return;
       const container = containerRef.current;
 
-      if (tier.useGpuRenderer) {
-        try {
-          const webgpuModule = await import('three/webgpu');
-          const webgpuRenderer = new webgpuModule.WebGPURenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-          await webgpuRenderer.init();
-          renderer = webgpuRenderer as any;
-        } catch {
-          renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-        }
-      } else {
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-      }
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: tier.useGpuRenderer ? 'high-performance' : 'default' });
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, tier.tier === 'mobile' ? 1.5 : 2));
       renderer.setSize(Math.max(container.clientWidth, 1), Math.max(container.clientHeight, 1));
