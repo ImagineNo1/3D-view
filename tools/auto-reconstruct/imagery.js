@@ -65,7 +65,6 @@ function parseGoogleMapsUrl(url) {
       };
     }
 
-    // Short links normally require redirect resolution; try pulling coordinates if present in query.
     const ll = parsed.searchParams.get('ll') || parsed.searchParams.get('sll') || '';
     const llPair = parseCoordinatePair(ll);
     if (llPair) {
@@ -104,9 +103,56 @@ async function decodeImageDimensions(sharpLib, buffer) {
   }
 }
 
+function makeFallbackTileRaw(x = 0, y = 0, z = 0) {
+  const rgba = Buffer.alloc(TILE_SIZE * TILE_SIZE * 4);
+  const seed = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
+  const phase = ((seed % 360) * Math.PI) / 180;
+  for (let py = 0; py < TILE_SIZE; py += 1) {
+    for (let px = 0; px < TILE_SIZE; px += 1) {
+      const i = (py * TILE_SIZE + px) * 4;
+      const gx = px / TILE_SIZE;
+      const gy = py / TILE_SIZE;
+      const ripple = Math.sin((gx * 12) + phase) * 8 + Math.cos((gy * 8) - phase) * 8;
+      rgba[i] = clamp(Math.round(65 + gx * 100 + ripple), 0, 255);
+      rgba[i + 1] = clamp(Math.round(70 + gy * 120 - ripple), 0, 255);
+      rgba[i + 2] = clamp(Math.round(55 + ((gx + gy) * 70)), 0, 255);
+      rgba[i + 3] = 255;
+    }
+  }
+  return rgba;
+}
+
+async function makeMockTile(sharpLib, x, y, z) {
+  const raw = makeFallbackTileRaw(x, y, z);
+  if (!sharpLib) return { buffer: null, raw };
+  const buffer = await sharpLib(raw, { raw: { width: TILE_SIZE, height: TILE_SIZE, channels: 4 } }).png().toBuffer();
+  return { buffer, raw };
+}
+
+function shouldSwitchToMock(status, errorMessage, bodyLength, isImageType, decodable) {
+  if (status >= 400 && status < 500) return true;
+  if (bodyLength === 0) return true;
+  const err = String(errorMessage || '').toLowerCase();
+  if (err.includes('connect tunnel') || err.includes('proxy') || err.includes('socket hang up') || err.includes('fetch failed') || err.includes('eai_again') || err.includes('enotfound')) return true;
+  if (!isImageType && !decodable) return true;
+  return false;
+}
+
 async function fetchTile(z, x, y, options = {}) {
   const sharpLib = options.sharpLib;
   const retries = Number(options.retries ?? 2);
+  const forceMock = Boolean(options.forceMock);
+  const modeState = options.modeState || { mode: forceMock ? 'mock' : 'live' };
+
+  if (forceMock || modeState.mode === 'mock') {
+    if (!modeState.mockAnnounced) {
+      modeState.mockAnnounced = true;
+      console.log('LIVE tile fetch unavailable → entering MOCK imagery mode');
+    }
+    const mock = await makeMockTile(sharpLib, x, y, z);
+    return { ok: true, mock: true, buffer: mock.buffer, raw: mock.raw, z, x, y, mode: 'mock' };
+  }
+
   const sources = [
     `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
     `https://tile.openstreetmap.org/${z}/${x}/${y}.png`
@@ -114,72 +160,69 @@ async function fetchTile(z, x, y, options = {}) {
 
   for (const source of sources) {
     for (let attempt = 0; attempt <= retries; attempt += 1) {
+      let status = 0;
       try {
         const res = await fetch(source, {
           headers: { 'user-agent': USER_AGENT, accept: 'image/*,*/*;q=0.8' }
         });
-        if (!res.ok) continue;
+        status = res.status;
         const buffer = Buffer.from(await res.arrayBuffer());
-        if (!buffer.length) continue;
         const contentType = String(res.headers.get('content-type') || '').toLowerCase();
         const isImageType = contentType.includes('image/');
         const decodable = await decodeImageDimensions(sharpLib, buffer);
-        if (isImageType || decodable) {
-          return { ok: true, buffer, source, status: res.status, z, x, y };
+
+        if (res.ok && buffer.length && (isImageType || decodable)) {
+          modeState.liveDetected = true;
+          return { ok: true, mock: false, buffer, source, status: res.status, z, x, y, mode: 'live' };
         }
-      } catch {
-        // retry/fallback source
+
+        if (shouldSwitchToMock(status, '', buffer.length, isImageType, decodable)) {
+          modeState.mode = 'mock';
+          if (!modeState.mockAnnounced) {
+            modeState.mockAnnounced = true;
+            console.log('LIVE tile fetch unavailable → entering MOCK imagery mode');
+          }
+          const mock = await makeMockTile(sharpLib, x, y, z);
+          return { ok: true, mock: true, buffer: mock.buffer, raw: mock.raw, z, x, y, mode: 'mock' };
+        }
+      } catch (err) {
+        if (shouldSwitchToMock(status, err?.message, 0, false, false)) {
+          modeState.mode = 'mock';
+          if (!modeState.mockAnnounced) {
+            modeState.mockAnnounced = true;
+            console.log('LIVE tile fetch unavailable → entering MOCK imagery mode');
+          }
+          const mock = await makeMockTile(sharpLib, x, y, z);
+          return { ok: true, mock: true, buffer: mock.buffer, raw: mock.raw, z, x, y, mode: 'mock' };
+        }
       }
     }
   }
 
-  // zoom fallback for provider saturation: one level lower zoom
-  if (z > 16) {
-    const parent = await fetchTile(z - 1, Math.floor(x / 2), Math.floor(y / 2), { ...options, retries: 1 });
+  if (z > 16 && !modeState.liveDetected) {
+    const parent = await fetchTile(z - 1, Math.floor(x / 2), Math.floor(y / 2), { ...options, retries: 1, modeState });
     if (parent?.ok) return { ...parent, z: z - 1, parentFallback: true };
   }
 
-  return { ok: false, buffer: null, z, x, y };
-}
-
-function makeFallbackTile() {
-  const rgba = Buffer.alloc(TILE_SIZE * TILE_SIZE * 4);
-  for (let y = 0; y < TILE_SIZE; y += 1) {
-    for (let x = 0; x < TILE_SIZE; x += 1) {
-      const i = (y * TILE_SIZE + x) * 4;
-      const base = 70 + Math.floor((x / TILE_SIZE) * 90);
-      const green = 80 + Math.floor((y / TILE_SIZE) * 80);
-      rgba[i] = base;
-      rgba[i + 1] = green;
-      rgba[i + 2] = 60;
-      rgba[i + 3] = 255;
-    }
-  }
-  return rgba;
+  return { ok: false, buffer: null, z, x, y, mode: modeState.mode || 'live' };
 }
 
 async function fetchTileGrid(lat, lng, zoom, options = {}) {
-  const sharpLib = options.sharpLib;
   const center = latLngToTile(lat, lng, zoom);
   const offset = Math.floor(GRID_SIZE / 2);
   const tiles = [];
+  const modeState = options.modeState || { mode: options.forceMock ? 'mock' : 'live' };
 
   for (let gy = 0; gy < GRID_SIZE; gy += 1) {
     for (let gx = 0; gx < GRID_SIZE; gx += 1) {
       const tx = center.x + gx - offset;
       const ty = center.y + gy - offset;
-      const tile = await fetchTile(center.z, tx, ty, options);
-      tiles.push({
-        gx,
-        gy,
-        tx,
-        ty,
-        ...tile
-      });
+      const tile = await fetchTile(center.z, tx, ty, { ...options, modeState });
+      tiles.push({ gx, gy, tx, ty, ...tile });
     }
   }
 
-  return { center, tiles };
+  return { center, tiles, mode: modeState.liveDetected ? 'live' : 'mock' };
 }
 
 async function mergeTiles(tiles, sharpLib) {
@@ -190,11 +233,11 @@ async function mergeTiles(tiles, sharpLib) {
   for (const tile of tiles) {
     const left = tile.gx * TILE_SIZE;
     const top = tile.gy * TILE_SIZE;
-    if (tile.ok && tile.buffer?.length) {
+    if (tile.buffer?.length) {
       composites.push({ input: tile.buffer, left, top });
     } else {
       composites.push({
-        input: makeFallbackTile(),
+        input: makeFallbackTileRaw(tile.tx, tile.ty, tile.z),
         raw: { width: TILE_SIZE, height: TILE_SIZE, channels: 4 },
         left,
         top
@@ -216,10 +259,9 @@ async function mergeTiles(tiles, sharpLib) {
   return { pngBuffer, rgbaBuffer: data, width: info.width, height: info.height };
 }
 
-async function fetchAutoImagery(googleMapsUrl) {
+async function fetchAutoImagery(googleMapsUrl, options = {}) {
   let sharpLib;
   try {
-    // optional runtime dependency
     // eslint-disable-next-line global-require
     sharpLib = require('sharp');
   } catch {
@@ -228,10 +270,13 @@ async function fetchAutoImagery(googleMapsUrl) {
 
   const parsed = parseGoogleMapsUrl(googleMapsUrl);
   const tileZoom = clamp(Math.round((parsed.zoom || 17) - 1), 16, 18);
-  const { tiles } = await fetchTileGrid(parsed.lat, parsed.lng, tileZoom, { sharpLib, retries: 2 });
+  const grid = await fetchTileGrid(parsed.lat, parsed.lng, tileZoom, {
+    sharpLib,
+    retries: 2,
+    forceMock: Boolean(options.forceMock)
+  });
 
-  const merged = await mergeTiles(tiles, sharpLib);
-  const hadRemoteTile = tiles.some((t) => t.ok);
+  const merged = await mergeTiles(grid.tiles, sharpLib);
   return {
     buffer: merged.pngBuffer,
     rgbaBuffer: merged.rgbaBuffer,
@@ -241,7 +286,8 @@ async function fetchAutoImagery(googleMapsUrl) {
     lng: parsed.lng,
     zoom: parsed.zoom,
     tileZoom,
-    fallback: !hadRemoteTile
+    fallback: grid.mode !== 'live',
+    mode: grid.mode
   };
 }
 
@@ -255,5 +301,6 @@ module.exports = {
   fetchTile,
   fetchTileGrid,
   mergeTiles,
-  fetchAutoImagery
+  fetchAutoImagery,
+  makeFallbackTileRaw
 };

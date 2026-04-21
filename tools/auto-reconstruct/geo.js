@@ -60,7 +60,11 @@ function ensureTerrainVariance(terrain) {
 
   if ((max - min) > 1e-4) return terrain;
 
-  const varied = heights.map((_, i) => (i % Math.max(2, terrain.width)) * 0.02);
+  const varied = heights.map((_, i) => {
+    const x = i % Math.max(2, terrain.width);
+    const y = Math.floor(i / Math.max(2, terrain.width));
+    return (x * 0.015) + (y * 0.005);
+  });
   return { ...terrain, heights: varied };
 }
 

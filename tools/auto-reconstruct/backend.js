@@ -120,7 +120,7 @@ app.post('/api/reconstruct', async (req, res) => {
   await fs.mkdir(TMP_DIR, { recursive: true });
 
   try {
-    const { googleMapsUrl, uploadedImage } = req.body || {};
+    const { googleMapsUrl, uploadedImage, forceMock } = req.body || {};
     const loc = parseGoogleMapsUrl(googleMapsUrl);
 
     let imagery;
@@ -140,7 +140,7 @@ app.post('/api/reconstruct', async (req, res) => {
         zoom: loc.zoom
       };
     } else {
-      imagery = await fetchAutoImagery(googleMapsUrl);
+      imagery = await fetchAutoImagery(googleMapsUrl, { forceMock: Boolean(forceMock) });
     }
 
     setAsset('satellite.png', imagery.buffer, 'image/png');
@@ -206,7 +206,7 @@ app.post('/api/reconstruct', async (req, res) => {
       heightmap: { path: '/viewer-assets/heightmap.png', width: heightmap.width, height: heightmap.height },
       terrain: geometry.terrain,
       buildings: geometry.buildings,
-      diagnostics: { fallbackImagery: imagery.fallback, heightmapSource: heightmap.source, errors }
+      diagnostics: { imageryMode: imagery.mode || (imagery.fallback ? 'mock' : 'live'), fallbackImagery: imagery.fallback, heightmapSource: heightmap.source, errors }
     };
 
     setAsset('scene.json', JSON.stringify(scene), 'application/json');
