@@ -25,6 +25,15 @@ async function safeWriteTmp(filePath, content) {
   }
 }
 
+async function readDebugJson(filePath) {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 function fallbackGeometry() {
   const poly = [
     [64, 64],
@@ -120,6 +129,26 @@ app.post('/api/reconstruct', async (req, res) => {
     setAsset('scene.json', Buffer.from(sceneText), 'application/json');
     await safeWriteTmp(path.join(outputDir, 'scene.json'), sceneText);
 
+    const buildingMeshesCount = Array.isArray(geo.footprints_with_height) ? geo.footprints_with_height.length : 0;
+    const hasGround = true;
+    const numMeshes = 1 + buildingMeshesCount;
+    const hasBuildings = buildingMeshesCount > 0;
+    const sceneDebug = {
+      numMeshes,
+      hasGround,
+      hasBuildings,
+      sourceStage: segmentationResult.ok ? 'segmentation' : 'fallback',
+      errors: [
+        ...(imageResult.errors || []).map((e) => `${e.provider}: ${e.message}`),
+        ...(segmentationResult.error ? [segmentationResult.error] : [])
+      ]
+    };
+    console.log(`[scene-debug] numMeshes=${numMeshes} hasGround=${hasGround} buildingMeshes=${buildingMeshesCount}`);
+    if (numMeshes < 2) {
+      console.warn('[scene-debug] WARNING: scene.json has < 2 meshes');
+    }
+    await safeWriteTmp('/tmp/scene-debug.json', JSON.stringify(sceneDebug, null, 2));
+
     res.json({
       ok: true,
       sceneConfig,
@@ -134,6 +163,16 @@ app.post('/api/reconstruct', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message || 'reconstruction failed' });
   }
+});
+
+app.get('/api/debug-report', async (_req, res) => {
+  const [imagery, segmentation, geo, scene] = await Promise.all([
+    readDebugJson('/tmp/imagery-debug.json'),
+    readDebugJson('/tmp/segmentation-debug.json'),
+    readDebugJson('/tmp/geo-debug.json'),
+    readDebugJson('/tmp/scene-debug.json')
+  ]);
+  res.json({ imagery, segmentation, geo, scene });
 });
 
 app.get('/viewer.html', async (_req, res) => {

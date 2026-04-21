@@ -4,6 +4,7 @@ import { EffectComposer } from 'https://unpkg.com/three@0.180.0/examples/jsm/pos
 import { RenderPass } from 'https://unpkg.com/three@0.180.0/examples/jsm/postprocessing/RenderPass.js';
 import { SSAOPass } from 'https://unpkg.com/three@0.180.0/examples/jsm/postprocessing/SSAOPass.js';
 import { buildSurroundingMeshes } from './geo.js';
+console.log('[viewer] viewer.js loaded');
 
 const root = document.getElementById('root');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -36,6 +37,7 @@ sun.shadow.camera.bottom = -300;
 scene.add(sun, new THREE.AmbientLight(0xffffff, 0.42));
 
 async function loadSceneConfig() {
+  console.log('[viewer] fetching scene.json');
   const res = await fetch('/viewer-assets/scene.json');
   if (!res.ok) {
     return {
@@ -191,6 +193,18 @@ async function init() {
   scene.add(surroundings);
   scene.add(createRoadMeshes(roads, 1024, 1024, worldSize));
   scene.add(createMainBuilding(cfg.mainBuilding));
+  const buildingCount = surroundings.children.length;
+  console.log(`[viewer] objects after loading=${scene.children.length} buildings=${buildingCount}`);
+  if (buildingCount === 0) {
+    console.warn('WARNING: scene.json is EMPTY');
+    const redPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(120, 120),
+      new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
+    );
+    redPlane.rotation.x = -Math.PI / 2;
+    redPlane.position.y = 0.2;
+    scene.add(redPlane);
+  }
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));

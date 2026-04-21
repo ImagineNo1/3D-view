@@ -4,6 +4,7 @@ import io
 import json
 import random
 import struct
+import traceback
 from pathlib import Path
 
 try:
@@ -152,10 +153,25 @@ def main():
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    debug_payload = {
+        'inputSize': [0, 0],
+        'polygons': 0,
+        'error': None
+    }
 
     try:
         img_np, width, height = load_image(args)
+        print(f'[segmentation] input loaded width={width} height={height}')
+        debug_payload['inputSize'] = [int(width), int(height)]
+        if img_np is not None and np is not None:
+            gray = np.array(Image.fromarray(img_np).convert('L'))
+            unique_vals = np.unique(gray)
+            print(f'[segmentation] unique intensities sample={unique_vals[:30].tolist()} total={len(unique_vals)}')
+        else:
+            print('[segmentation] unique intensities unavailable (numpy/pillow not available)')
         building_polys, road_polys = segment_buildings_and_roads(img_np, width, height)
+        print(f'[segmentation] detected polygons={len(building_polys)}')
+        debug_payload['polygons'] = int(len(building_polys))
 
         with_height = [{
             'id': idx,
@@ -166,6 +182,7 @@ def main():
         if not with_height:
             building_polys, road_polys = fallback_polygons(width, height)
             with_height = [{'id': 0, 'polygon': building_polys[0], 'height_m': 18.0}]
+            debug_payload['polygons'] = int(len(building_polys))
 
         footprints = save_geojson_like(building_polys, out_dir / 'footprints.json')
         roads = save_geojson_like(road_polys, out_dir / 'roads.json')
@@ -179,11 +196,15 @@ def main():
             'meta': {'imageWidth': int(width), 'imageHeight': int(height)}
         }
     except Exception as err:
+        print('[segmentation] ERROR')
+        print(traceback.format_exc())
         fallback_buildings, fallback_roads = fallback_polygons(256, 256)
         with_height = [{'id': 0, 'polygon': fallback_buildings[0], 'height_m': 18.0}]
         footprints = save_geojson_like(fallback_buildings, out_dir / 'footprints.json')
         roads = save_geojson_like(fallback_roads, out_dir / 'roads.json')
         (out_dir / 'footprints_with_height.json').write_text(json.dumps(with_height, indent=2), encoding='utf-8')
+        debug_payload['polygons'] = 0
+        debug_payload['error'] = str(err)
         payload = {
             'ok': False,
             'error': str(err),
@@ -192,6 +213,12 @@ def main():
             'footprints_with_height': with_height,
             'meta': {'imageWidth': 256, 'imageHeight': 256}
         }
+
+    try:
+        Path('/tmp/segmentation-debug.json').write_text(json.dumps(debug_payload, indent=2), encoding='utf-8')
+    except Exception:
+        print('[segmentation] failed to write /tmp/segmentation-debug.json')
+        print(traceback.format_exc())
 
     if args.json_stdout:
         print(json.dumps(payload))

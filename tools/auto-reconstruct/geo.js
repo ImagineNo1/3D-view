@@ -75,21 +75,55 @@ function defaultFootprints() {
   ];
 }
 
+async function writeGeoDebug(payload) {
+  try {
+    if (typeof window === 'undefined' && typeof process !== 'undefined' && process.versions?.node) {
+      const { writeFile } = await import('node:fs/promises');
+      await writeFile('/tmp/geo-debug.json', JSON.stringify(payload, null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.error('[geo] failed to write /tmp/geo-debug.json', err);
+  }
+}
+
 export function buildSurroundingMeshes(footprintsWithHeight, opts) {
   const group = new THREE.Group();
-  const items = Array.isArray(footprintsWithHeight) && footprintsWithHeight.length
-    ? footprintsWithHeight
-    : defaultFootprints();
+  try {
+    const source = Array.isArray(footprintsWithHeight) ? footprintsWithHeight : [];
+    console.log(`[geo] input polygons count=${source.length}`);
+    const coords = source.flatMap((fp) => Array.isArray(fp?.polygon) ? fp.polygon : []);
+    const xs = coords.map((p) => Number(p?.[0])).filter(Number.isFinite);
+    const ys = coords.map((p) => Number(p?.[1])).filter(Number.isFinite);
+    const minLat = ys.length ? Math.min(...ys) : null;
+    const maxLat = ys.length ? Math.max(...ys) : null;
+    const minLng = xs.length ? Math.min(...xs) : null;
+    const maxLng = xs.length ? Math.max(...xs) : null;
+    console.log(`[geo] min/max lat=${minLat}/${maxLat} lng=${minLng}/${maxLng}`);
 
-  for (const fp of items) {
-    group.add(createExtrudedBuilding(fp, opts));
-  }
+    const items = source.length ? source : defaultFootprints();
 
-  if (group.children.length === 0) {
+    for (const fp of items) {
+      group.add(createExtrudedBuilding(fp, opts));
+    }
+
+    if (group.children.length === 0) {
+      for (const fp of defaultFootprints()) {
+        group.add(createExtrudedBuilding(fp, opts));
+      }
+    }
+
+    console.log(`[geo] output building footprints count=${group.children.length}`);
+    return group;
+  } catch (err) {
+    const message = err?.stack || err?.message || String(err);
+    console.error('[geo] error in buildSurroundingMeshes');
+    console.error(message);
+    writeGeoDebug({
+      error: message
+    });
     for (const fp of defaultFootprints()) {
       group.add(createExtrudedBuilding(fp, opts));
     }
+    return group;
   }
-
-  return group;
 }

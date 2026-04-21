@@ -1,3 +1,5 @@
+const fs = require('node:fs/promises');
+
 const PLACEHOLDER_PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAx0lEQVR4nO3ZQQrCMBRA0US8/5Xui4jgNiWjP4UKfVJr9eMS4z8SeV2X1f0/4D8G2A2wG2A3wG6A3QC7AXYD7AbYDbAbYDfAboDdALsBdgPsBtgNsBtgN8BugN0AuwF2A+wG2A2wG2A3wG6A3QC7AXYD7AbYDbAbYDfAboDdALsBdgPsBtgNsBtgN8BugN0AuwF2A+wG2A2wG2A3wG6A3QC7AXYD7AbYDbAbYDfAboDdALsB9gGxk0sG0U6PjQAAAABJRU5ErkJggg==';
 
@@ -48,13 +50,27 @@ function lngLatToTile(lng, lat, zoom) {
 }
 
 async function fetchBuffer(url) {
+  console.log(`[imagery] fetch url=${url}`);
   const res = await fetch(url, {
     headers: {
       'user-agent': 'auto-reconstruct/1.0 (+vercel)'
     }
   });
-  if (!res.ok) throw new Error(`Failed request ${res.status} for ${url}`);
-  return Buffer.from(await res.arrayBuffer());
+  const contentType = res.headers.get('content-type');
+  const contentLength = res.headers.get('content-length');
+  console.log(`[imagery] status=${res.status} type=${contentType || 'unknown'} content-length=${contentLength || 'unknown'}`);
+  if (!res.ok) {
+    console.error(`[imagery] HTTP error for ${url}: ${res.status}`);
+    throw new Error(`Failed request ${res.status} for ${url}`);
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  console.log(`[imagery] fetched bytes=${buffer.length}`);
+  return {
+    buffer,
+    status: res.status,
+    contentType,
+    contentLength
+  };
 }
 
 async function tryTileProviders(center) {
@@ -73,20 +89,25 @@ async function tryTileProviders(center) {
   const errors = [];
   for (const provider of providers) {
     try {
-      const buffer = await fetchBuffer(provider.url);
+      const result = await fetchBuffer(provider.url);
+      const tileState = !result?.buffer ? 'empty (null)' : (result.buffer.length === 0 ? 'empty (zero bytes)' : 'completely fetched');
+      console.log(`[imagery] provider=${provider.mode} tile-state=${tileState}`);
       return {
         ok: true,
         mode: provider.mode,
         providerURL: provider.url,
         width: 256,
         height: 256,
-        buffer
+        buffer: result.buffer
       };
     } catch (err) {
+      console.error(`[imagery] provider=${provider.mode} failed`);
+      console.error(err?.stack || err?.message || String(err));
       errors.push({ provider: provider.mode, message: err.message || String(err) });
     }
   }
 
+  console.warn('[imagery] all providers failed; falling back to embedded placeholder');
   return {
     ok: false,
     mode: 'placeholder',
@@ -98,9 +119,47 @@ async function tryTileProviders(center) {
   };
 }
 
+async function writeImageryDebug(debugPayload) {
+  const payload = JSON.stringify(debugPayload, null, 2);
+  try {
+    await fs.writeFile('/tmp/imagery-debug.json', payload, 'utf8');
+  } catch (err) {
+    console.error('[imagery] failed to write /tmp/imagery-debug.json');
+    console.error(err?.stack || err?.message || String(err));
+  }
+}
+
 async function fetchSatelliteFromGoogleMapsURL(googleMapsUrl, _opts = {}) {
   const center = parseGoogleMapsURL(googleMapsUrl);
-  const result = await tryTileProviders(center);
+  let result = null;
+  let debugError = null;
+  try {
+    result = await tryTileProviders(center);
+  } catch (err) {
+    debugError = err?.stack || err?.message || String(err);
+    console.error('[imagery] fetchSatelliteFromGoogleMapsURL error');
+    console.error(debugError);
+    result = {
+      mode: 'placeholder',
+      providerURL: null,
+      width: 64,
+      height: 64,
+      buffer: Buffer.from(PLACEHOLDER_PNG_BASE64, 'base64'),
+      errors: [{ provider: 'unknown', message: debugError }]
+    };
+  } finally {
+    const safeResult = result || {
+      mode: 'placeholder',
+      providerURL: null,
+      buffer: Buffer.from(PLACEHOLDER_PNG_BASE64, 'base64')
+    };
+    await writeImageryDebug({
+      mode: safeResult.mode,
+      url: safeResult.providerURL || null,
+      error: debugError || (safeResult.errors || []).map((e) => `${e.provider}: ${e.message}`).join('; ') || null,
+      tileBase64: (safeResult.buffer || Buffer.alloc(0)).toString('base64').slice(0, 200)
+    });
+  }
 
   return {
     mode: result.mode,
