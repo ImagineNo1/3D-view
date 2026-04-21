@@ -21,7 +21,7 @@ export function HeroSection() {
           <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-tight text-slate-900 md:text-6xl">{t.home.heroTitle}</h1>
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">{t.home.heroDescription}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/admin" className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:translate-y-[-1px] hover:bg-slate-700">
+            <Link href="/admin?tab=form" className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:translate-y-[-1px] hover:bg-slate-700">
               {t.home.heroPrimary}
             </Link>
             <a href="#projects" className="rounded-xl border border-slate-300 bg-white/80 px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">

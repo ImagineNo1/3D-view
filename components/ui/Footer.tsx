@@ -13,7 +13,6 @@ export function Footer() {
         <div className="flex gap-5">
           <Link href="/" className="hover:text-slate-900">{t.nav.home}</Link>
           <Link href="/admin" className="hover:text-slate-900">{t.nav.dashboard}</Link>
-          <a href="#projects" className="hover:text-slate-900">{t.nav.projects}</a>
         </div>
       </div>
     </footer>

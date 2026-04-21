@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminSession } from '@/lib/auth';
 import { buildUploadedFileUrl, buildUploadStorageDir } from '@/lib/uploadStorage';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -18,6 +19,11 @@ function sanitizeKey(input: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = randomUUID();
+  const session = await requireAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', requestId }, { status: 401 });
+  }
   try {
     const formData = await request.formData();
     const category = formData.get('category');
@@ -25,11 +31,11 @@ export async function POST(request: NextRequest) {
     const propertyKey = sanitizeKey(propertyKeyRaw);
 
     if (category !== 'gallery' && category !== 'aerial') {
-      return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid category', code: 'INVALID_CATEGORY', requestId }, { status: 400 });
     }
 
     const files = formData.getAll('files').filter((item): item is File => item instanceof File);
-    if (!files.length) return NextResponse.json({ error: 'No files uploaded' }, { status: 400 });
+    if (!files.length) return NextResponse.json({ error: 'No files uploaded', code: 'NO_FILES', requestId }, { status: 400 });
 
     const uploadDir = buildUploadStorageDir(propertyKey, category);
     await mkdir(uploadDir, { recursive: true });
@@ -38,10 +44,10 @@ export async function POST(request: NextRequest) {
 
     for (const file of files) {
       if (!ALLOWED_MIME.has(file.type)) {
-        return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
+        return NextResponse.json({ error: `Unsupported file type: ${file.type}`, code: 'UNSUPPORTED_TYPE', requestId }, { status: 400 });
       }
       if (file.size > MAX_FILE_SIZE) {
-        return NextResponse.json({ error: 'File too large (max 8MB)' }, { status: 400 });
+        return NextResponse.json({ error: 'File too large (max 8MB)', code: 'FILE_TOO_LARGE', requestId }, { status: 400 });
       }
 
       const ext = extensionFromMime(file.type);
@@ -54,10 +60,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       fileUrl: urls[0] || null,
-      urls
+      urls,
+      requestId
     }, { status: 201 });
   } catch (error) {
-    console.error('Upload API error', error);
-    return NextResponse.json({ success: false, error: 'Upload failed' }, { status: 500 });
+    const details = error instanceof Error ? error.message : String(error);
+    console.error('Upload API error', { requestId, error });
+    return NextResponse.json({ success: false, error: 'Upload failed', code: 'UPLOAD_EXCEPTION', details, requestId }, { status: 500 });
   }
 }

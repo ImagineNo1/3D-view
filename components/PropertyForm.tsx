@@ -18,7 +18,29 @@ type UploadResponse = {
   fileUrl?: string;
   urls?: string[];
   error?: string;
+  code?: string;
+  details?: string;
+  requestId?: string;
 };
+
+function readUploadError(xhr: XMLHttpRequest, parsed: UploadResponse) {
+  const responseType = xhr.getResponseHeader('content-type') || '';
+  const responseText = xhr.responseText?.trim();
+  const fallback = `Upload failed (status ${xhr.status})`;
+
+  if (parsed.error?.trim()) {
+    const codePart = parsed.code ? ` [${parsed.code}]` : '';
+    const detailsPart = parsed.details ? ` — ${parsed.details}` : '';
+    const requestPart = parsed.requestId ? ` (request: ${parsed.requestId})` : '';
+    return `${parsed.error}${codePart}${detailsPart}${requestPart}`;
+  }
+
+  if (!responseText) return fallback;
+  if (responseType.includes('text/html')) return `${fallback} — server returned HTML instead of JSON`;
+
+  const compact = responseText.replace(/\s+/g, ' ').slice(0, 240);
+  return `${fallback} — ${compact}`;
+}
 
 async function uploadImageWithProgress(
   category: 'gallery' | 'aerial',
@@ -63,14 +85,14 @@ async function uploadImageWithProgress(
         return;
       }
 
-      const message = data.error || `Upload failed (status ${xhr.status})`;
+      const message = readUploadError(xhr, data);
       console.error('Upload rejected', { status: xhr.status, body: xhr.responseText, parsed: data });
       onStatusChange('error', message);
       reject(new Error(message));
     };
 
     xhr.onerror = () => {
-      const message = 'Network error while uploading image';
+      const message = `Network error while uploading image (status ${xhr.status || 0})`;
       console.error(message, { category, propertyKey, fileName: file.name });
       onStatusChange('error', message);
       reject(new Error(message));

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminSession } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import Property from '@/models/Property';
 import type { PropertyPayload } from '@/types/property';
@@ -10,6 +11,8 @@ function normalizeOptionalNumber(value: unknown) {
 }
 
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const session = await requireAdminSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const { slug } = await params;
     await connectToDatabase();
@@ -24,6 +27,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const session = await requireAdminSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const { slug } = await params;
     const payload = (await request.json()) as Partial<PropertyPayload>;
@@ -62,6 +67,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const session = await requireAdminSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const { slug } = await params;
     await connectToDatabase();
