@@ -5,25 +5,54 @@ const express = require('express');
 const { fetchSatelliteFromGoogleMapsURL } = require('./imagery');
 
 const PORT = Number(process.env.PORT || 5050);
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || '';
 const app = express();
 
-app.use(express.json({ limit: '2mb' }));
-app.use('/viewer-assets', express.static(path.join(process.cwd(), 'tools/auto-reconstruct/output')));
+const memoryAssets = new Map();
 
-function runPythonSegmentation({ imagePath, outputDir, lat, lng, zoom }) {
-  return new Promise((resolve, reject) => {
+app.use(express.json({ limit: '6mb' }));
+
+function setAsset(name, buffer, contentType = 'application/octet-stream') {
+  memoryAssets.set(name, { buffer: Buffer.from(buffer), contentType, updatedAt: Date.now() });
+}
+
+async function safeWriteTmp(filePath, content) {
+  try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, content);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function fallbackGeometry() {
+  const poly = [
+    [64, 64],
+    [192, 64],
+    [192, 192],
+    [64, 192],
+    [64, 64]
+  ];
+  return {
+    footprints: [{ id: 0, polygon: poly }],
+    roads: [{ id: 0, polygon: [[0, 120], [256, 120], [256, 136], [0, 136], [0, 120]] }],
+    footprints_with_height: [{ id: 0, polygon: poly, height_m: 18 }],
+    meta: { imageWidth: 256, imageHeight: 256 }
+  };
+}
+
+function runPythonSegmentation({ imageBuffer, outputDir }) {
+  return new Promise((resolve) => {
     const proc = spawn('python3', [
       path.join(__dirname, 'segmentation.py'),
-      '--image', imagePath,
+      '--image-base64', imageBuffer.toString('base64'),
       '--output-dir', outputDir,
-      '--lat', String(lat),
-      '--lng', String(lng),
-      '--zoom', String(zoom)
-    ]);
+      '--json-stdout'
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let stdout = '';
     let stderr = '';
+
     proc.stdout.on('data', (d) => {
       stdout += d.toString();
     });
@@ -33,39 +62,53 @@ function runPythonSegmentation({ imagePath, outputDir, lat, lng, zoom }) {
 
     proc.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`segmentation.py failed (${code}): ${stderr || stdout}`));
+        resolve({ ok: false, error: `segmentation exit=${code}`, stderr, stdout, payload: fallbackGeometry() });
         return;
       }
-      resolve({ stdout, stderr });
+      try {
+        const payload = JSON.parse(stdout.trim() || '{}');
+        resolve({ ok: Boolean(payload.ok), stderr, stdout, payload });
+      } catch (err) {
+        resolve({ ok: false, error: err.message, stderr, stdout, payload: fallbackGeometry() });
+      }
     });
   });
 }
 
+app.get('/viewer-assets/:name', (req, res) => {
+  const asset = memoryAssets.get(req.params.name);
+  if (!asset) {
+    res.status(404).json({ error: `asset not found: ${req.params.name}` });
+    return;
+  }
+  res.type(asset.contentType).send(asset.buffer);
+});
+
 app.post('/api/reconstruct', async (req, res) => {
   try {
     const { googleMapsUrl, mainBuilding } = req.body || {};
-    if (!googleMapsUrl) {
-      res.status(400).json({ error: 'googleMapsUrl is required' });
-      return;
-    }
+    const outputDir = process.env.VERCEL ? '/tmp/auto-reconstruct' : path.join(process.cwd(), 'tools/auto-reconstruct/output');
 
-    const outputDir = path.join(process.cwd(), 'tools/auto-reconstruct/output');
-    await fs.mkdir(outputDir, { recursive: true });
+    const imageResult = await fetchSatelliteFromGoogleMapsURL(googleMapsUrl || '');
+    const imageBuffer = imageResult.buffer && imageResult.buffer.length
+      ? imageResult.buffer
+      : Buffer.from('');
 
-    const imageResult = await fetchSatelliteFromGoogleMapsURL(googleMapsUrl, {
-      apiKey: GOOGLE_MAPS_API_KEY,
-      outputDir
-    });
+    const segmentationResult = imageBuffer.length
+      ? await runPythonSegmentation({ imageBuffer, outputDir })
+      : { ok: false, payload: fallbackGeometry(), error: 'empty imagery buffer' };
 
-    await runPythonSegmentation({
-      imagePath: imageResult.imagePath,
-      outputDir,
-      lat: imageResult.center.lat,
-      lng: imageResult.center.lng,
-      zoom: imageResult.center.zoom
-    });
+    const geo = segmentationResult.payload && segmentationResult.payload.footprints_with_height?.length
+      ? segmentationResult.payload
+      : fallbackGeometry();
+
+    setAsset('satellite.png', imageBuffer.length ? imageBuffer : Buffer.from(''), 'image/png');
+    setAsset('footprints.json', Buffer.from(JSON.stringify(geo.footprints || [], null, 2)), 'application/json');
+    setAsset('roads.json', Buffer.from(JSON.stringify(geo.roads || [], null, 2)), 'application/json');
+    setAsset('footprints_with_height.json', Buffer.from(JSON.stringify(geo.footprints_with_height || [], null, 2)), 'application/json');
 
     const sceneConfig = {
+      safeMode: true,
       mapCenter: imageResult.center,
       satellitePath: '/viewer-assets/satellite.png',
       footprintsPath: '/viewer-assets/footprints_with_height.json',
@@ -73,12 +116,20 @@ app.post('/api/reconstruct', async (req, res) => {
       mainBuilding: mainBuilding || null
     };
 
-    await fs.writeFile(path.join(outputDir, 'scene.json'), JSON.stringify(sceneConfig, null, 2));
+    const sceneText = JSON.stringify(sceneConfig, null, 2);
+    setAsset('scene.json', Buffer.from(sceneText), 'application/json');
+    await safeWriteTmp(path.join(outputDir, 'scene.json'), sceneText);
 
     res.json({
       ok: true,
       sceneConfig,
-      viewerURL: 'http://localhost:5050/viewer.html'
+      diagnostics: {
+        imageryMode: imageResult.mode,
+        imageryErrors: imageResult.errors || [],
+        segmentationOk: segmentationResult.ok,
+        segmentationError: segmentationResult.error || null
+      },
+      viewerURL: '/viewer.html'
     });
   } catch (err) {
     res.status(500).json({ error: err.message || 'reconstruction failed' });

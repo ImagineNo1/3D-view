@@ -28,7 +28,7 @@ scene.add(new THREE.HemisphereLight(0xd8e8ff, 0xb09f8b, 0.45));
 const sun = new THREE.DirectionalLight(0xffffff, 1.4);
 sun.position.set(120, 240, 80);
 sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.left = -300;
 sun.shadow.camera.right = 300;
 sun.shadow.camera.top = 300;
@@ -37,8 +37,62 @@ scene.add(sun, new THREE.AmbientLight(0xffffff, 0.42));
 
 async function loadSceneConfig() {
   const res = await fetch('/viewer-assets/scene.json');
-  if (!res.ok) throw new Error('scene.json missing. Run backend /api/reconstruct first.');
+  if (!res.ok) {
+    return {
+      safeMode: true,
+      mapCenter: { lat: 0, lng: 0, zoom: 2 },
+      satellitePath: null,
+      footprintsPath: null,
+      roadsPath: null,
+      mainBuilding: null
+    };
+  }
   return res.json();
+}
+
+function makeGradientTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#7fa2c9');
+  g.addColorStop(0.5, '#89aa7f');
+  g.addColorStop(1, '#6e8d5e');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+
+  for (let i = 0; i < 30; i += 1) {
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect((i * 17) % 256, (i * 31) % 256, 40, 8);
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  return tex;
+}
+
+function loadTextureOrFallback(path) {
+  return new Promise((resolve) => {
+    if (!path) {
+      resolve(makeGradientTexture());
+      return;
+    }
+
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      path,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        resolve(tex);
+      },
+      undefined,
+      () => resolve(makeGradientTexture())
+    );
+  });
 }
 
 function createMainBuilding(mainBuilding) {
@@ -56,32 +110,22 @@ function createMainBuilding(mainBuilding) {
   core.castShadow = true;
   core.receiveShadow = true;
   group.add(core);
-
-  const makeWall = (w, h, tex, x, y, z, ry = 0) => {
-    if (!tex) return;
-    const map = new THREE.TextureLoader().load(tex);
-    map.colorSpace = THREE.SRGBColorSpace;
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map, roughness: 0.65, metalness: 0.03 }));
-    wall.position.set(x, y, z);
-    wall.rotation.y = ry;
-    wall.castShadow = true;
-    group.add(wall);
-  };
-
-  const tex = mainBuilding.facades || {};
-  makeWall(width, height, tex.front, 0, height * 0.5, depth * 0.5 + 0.05, 0);
-  makeWall(width, height, tex.back, 0, height * 0.5, -depth * 0.5 - 0.05, Math.PI);
-  makeWall(depth, height, tex.left, -width * 0.5 - 0.05, height * 0.5, 0, -Math.PI / 2);
-  makeWall(depth, height, tex.right, width * 0.5 + 0.05, height * 0.5, 0, Math.PI / 2);
-
   return group;
+}
+
+function defaultRoads() {
+  return [{
+    polygon: [[0, 250], [700, 250], [700, 280], [0, 280], [0, 250]]
+  }];
 }
 
 function createRoadMeshes(roads, imageWidth, imageHeight, worldSize) {
   const group = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: '#636a72', roughness: 0.97, metalness: 0.02 });
-  for (const road of roads) {
-    const pts = road.polygon.map(([x, y]) => new THREE.Vector2(((x / imageWidth) - 0.5) * worldSize, ((y / imageHeight) - 0.5) * worldSize));
+  const source = Array.isArray(roads) && roads.length ? roads : defaultRoads();
+
+  for (const road of source) {
+    const pts = (road.polygon || []).map(([x, y]) => new THREE.Vector2(((x / imageWidth) - 0.5) * worldSize, ((y / imageHeight) - 0.5) * worldSize));
     if (pts.length < 4) continue;
     const shape = new THREE.Shape(pts);
     const geom = new THREE.ShapeGeometry(shape);
@@ -91,14 +135,39 @@ function createRoadMeshes(roads, imageWidth, imageHeight, worldSize) {
     mesh.receiveShadow = true;
     group.add(mesh);
   }
+
+  if (!group.children.length) {
+    const fallback = new THREE.Mesh(new THREE.PlaneGeometry(worldSize, 20), mat);
+    fallback.rotation.x = -Math.PI / 2;
+    fallback.position.y = 0.05;
+    group.add(fallback);
+  }
+
   return group;
+}
+
+async function fetchJsonOr(path, fallback) {
+  if (!path) return fallback;
+  try {
+    const res = await fetch(path);
+    if (!res.ok) return fallback;
+    return await res.json();
+  } catch {
+    return fallback;
+  }
+}
+
+function defaultFootprints() {
+  return [
+    { id: 0, polygon: [[160, 160], [310, 160], [310, 320], [160, 320], [160, 160]], height_m: 18 },
+    { id: 1, polygon: [[360, 220], [480, 220], [480, 360], [360, 360], [360, 220]], height_m: 24 }
+  ];
 }
 
 async function init() {
   const cfg = await loadSceneConfig();
 
-  const satTex = new THREE.TextureLoader().load(cfg.satellitePath);
-  satTex.colorSpace = THREE.SRGBColorSpace;
+  const satTex = await loadTextureOrFallback(cfg.satellitePath);
   const worldSize = 700;
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(worldSize, worldSize, 1, 1),
@@ -108,21 +177,19 @@ async function init() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const [buildRes, roadsRes] = await Promise.all([
-    fetch(cfg.footprintsPath),
-    fetch(cfg.roadsPath)
+  const [footprints, roads] = await Promise.all([
+    fetchJsonOr(cfg.footprintsPath, defaultFootprints()),
+    fetchJsonOr(cfg.roadsPath, defaultRoads())
   ]);
-  const footprints = await buildRes.json();
-  const roads = await roadsRes.json();
 
-  const surroundings = buildSurroundingMeshes(footprints, {
-    imageWidth: 8192,
-    imageHeight: 8192,
+  const surroundings = buildSurroundingMeshes(Array.isArray(footprints) && footprints.length ? footprints : defaultFootprints(), {
+    imageWidth: 1024,
+    imageHeight: 1024,
     worldSize,
     material: new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.9, metalness: 0.05 })
   });
   scene.add(surroundings);
-  scene.add(createRoadMeshes(roads, 8192, 8192, worldSize));
+  scene.add(createRoadMeshes(roads, 1024, 1024, worldSize));
   scene.add(createMainBuilding(cfg.mainBuilding));
 
   const composer = new EffectComposer(renderer);
