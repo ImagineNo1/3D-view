@@ -72,4 +72,10 @@ export async function getAdminSession() {
   return verify(token);
 }
 
+export async function requireAdminSession() {
+  const session = await getAdminSession();
+  if (!session || session.role !== 'admin') return null;
+  return session;
+}
+
 export const ADMIN_COOKIE_NAME = SESSION_COOKIE;

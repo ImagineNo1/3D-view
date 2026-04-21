@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import QRCode from 'qrcode';
+import { requireAdminSession } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import Property from '@/models/Property';
 import { parseGoogleMapsUrl } from '@/lib/maps';
@@ -20,6 +21,8 @@ function normalizeOptionalNumber(value: unknown) {
 }
 
 export async function GET() {
+  const session = await requireAdminSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     await connectToDatabase();
     const properties = await Property.find({}).sort({ createdAt: -1 }).lean();
@@ -30,6 +33,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await requireAdminSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const payload = (await request.json()) as Partial<PropertyPayload>;
     const validationError = validatePayload(payload);

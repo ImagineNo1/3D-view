@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/providers/LanguageProvider';
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { locale, setLocale, t } = useLanguage();
 
   useEffect(() => {
@@ -13,6 +14,19 @@ export function Navbar() {
     onScroll();
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/admin/session', { cache: 'no-store' });
+        const data = (await response.json()) as { authenticated?: boolean; role?: string | null };
+        setIsAdmin(data.authenticated === true && data.role === 'admin');
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+    checkSession().catch(() => setIsAdmin(false));
   }, []);
 
   return (
@@ -28,22 +42,20 @@ export function Navbar() {
 
         <div className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
           <Link href="/">{t.nav.home}</Link>
-          <a href="#projects">{t.nav.projects}</a>
-          <Link href="/admin">{t.nav.dashboard}</Link>
+          {isAdmin && <Link href="/admin">{t.nav.dashboard}</Link>}
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setLocale(locale === 'fa' ? 'en' : 'fa')}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             aria-label={t.nav.language}
             title={t.nav.language}
           >
             <span aria-hidden>🌐</span>
-            <span>{locale === 'fa' ? t.nav.switchToEn : t.nav.switchToFa}</span>
           </button>
-          <Link href="/admin" className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+          <Link href="/admin?tab=form" className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
             {t.nav.createProject}
           </Link>
         </div>

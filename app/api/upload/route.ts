@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminSession } from '@/lib/auth';
 import { buildUploadedFileUrl, buildUploadStorageDir } from '@/lib/uploadStorage';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -19,6 +20,10 @@ function sanitizeKey(input: string) {
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
+  const session = await requireAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', requestId }, { status: 401 });
+  }
   try {
     const formData = await request.formData();
     const category = formData.get('category');
