@@ -92,8 +92,8 @@ export default function GeneratedBuildingModel({
 
       if (tier.useGpuRenderer) {
         try {
-          const webgpuModule = await import('three/examples/jsm/renderers/webgpu/WebGPURenderer.js');
-          const webgpuRenderer = new webgpuModule.default({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+          const webgpuModule = await import('three/webgpu');
+          const webgpuRenderer = new webgpuModule.WebGPURenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
           await webgpuRenderer.init();
           renderer = webgpuRenderer as any;
         } catch {

@@ -9,4 +9,4 @@ declare module 'three/examples/jsm/shaders/FXAAShader.js';
 declare module 'three/examples/jsm/postprocessing/ShaderPass.js';
 declare module 'three/examples/jsm/loaders/RGBELoader.js';
 declare module 'three/examples/jsm/utils/BufferGeometryUtils.js';
-declare module 'three/examples/jsm/renderers/webgpu/WebGPURenderer.js';
+declare module 'three/webgpu';
