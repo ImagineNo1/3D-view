@@ -2,7 +2,7 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const { spawn } = require('node:child_process');
 const express = require('express');
-const { fetchAutoImagery, parseGoogleMapsLink } = require('./imagery');
+const { fetchAutoImagery, parseGoogleMapsUrl } = require('./imagery');
 const { extractBuildings } = require('./segmentation');
 const { buildSceneGeometry } = require('./geo');
 
@@ -120,8 +120,8 @@ app.post('/api/reconstruct', async (req, res) => {
   await fs.mkdir(TMP_DIR, { recursive: true });
 
   try {
-    const { googleMapsUrl, uploadedImage } = req.body || {};
-    const loc = parseGoogleMapsLink(googleMapsUrl);
+    const { googleMapsUrl, uploadedImage, forceMock } = req.body || {};
+    const loc = parseGoogleMapsUrl(googleMapsUrl);
 
     let imagery;
     if (uploadedImage) {
@@ -140,7 +140,7 @@ app.post('/api/reconstruct', async (req, res) => {
         zoom: loc.zoom
       };
     } else {
-      imagery = await fetchAutoImagery(googleMapsUrl);
+      imagery = await fetchAutoImagery(googleMapsUrl, { forceMock: Boolean(forceMock) });
     }
 
     setAsset('satellite.png', imagery.buffer, 'image/png');
@@ -206,7 +206,7 @@ app.post('/api/reconstruct', async (req, res) => {
       heightmap: { path: '/viewer-assets/heightmap.png', width: heightmap.width, height: heightmap.height },
       terrain: geometry.terrain,
       buildings: geometry.buildings,
-      diagnostics: { fallbackImagery: imagery.fallback, heightmapSource: heightmap.source, errors }
+      diagnostics: { imageryMode: imagery.mode || (imagery.fallback ? 'mock' : 'live'), fallbackImagery: imagery.fallback, heightmapSource: heightmap.source, errors }
     };
 
     setAsset('scene.json', JSON.stringify(scene), 'application/json');

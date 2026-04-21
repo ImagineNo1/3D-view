@@ -83,6 +83,12 @@ function buildDisplacementTexture(sceneCfg) {
     for (const v of heights) max = Math.max(max, Number(v) || 0);
     const inv = max > 0 ? 255 / max : 1;
     for (let i = 0; i < w * h; i += 1) bytes[i] = Math.round((Number(heights[i]) || 0) * inv);
+  } else {
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        bytes[y * w + x] = Math.round((x / Math.max(1, w - 1)) * 8);
+      }
+    }
   }
 
   const tex = new THREE.DataTexture(bytes, w, h, THREE.RedFormat, THREE.UnsignedByteType);
@@ -148,7 +154,7 @@ async function init() {
     new THREE.MeshStandardMaterial({
       map: texture,
       displacementMap: dispMap,
-      displacementScale: 12,
+      displacementScale: Number(cfg?.terrain?.maxHeightMeters) || 12,
       roughness: 0.95,
       metalness: 0
     })
@@ -160,7 +166,7 @@ async function init() {
   const group = addBuildings(cfg || {});
 
   const bounds = new THREE.Box3().setFromObject(group);
-  const center = bounds.getCenter(new THREE.Vector3());
+  const center = bounds.isEmpty() ? new THREE.Vector3(0, 0, 0) : bounds.getCenter(new THREE.Vector3());
   controls.target.copy(center);
   camera.lookAt(center);
 
