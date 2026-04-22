@@ -170,10 +170,28 @@ async function init() {
     roads: payload.roads,
     bounds: payload.bounds
   };
+  console.log('[viewer] payload scene:', payload?.scene && {
+    terrain: payload.scene.terrain && {
+      width: payload.scene.terrain.width,
+      height: payload.scene.terrain.height,
+      worldSizeMeters: payload.scene.terrain.worldSizeMeters,
+      maxHeightMeters: payload.scene.terrain.maxHeightMeters,
+      resolutionX: payload.scene.terrain.resolutionX,
+      resolutionY: payload.scene.terrain.resolutionY
+    },
+    bounds: payload.scene.bounds
+  });
+
+  console.log(
+    '[viewer] imagery base64 length:',
+    typeof payload.imagery === 'string' ? payload.imagery.length : null
+  );
 
   const worldSize = cfg?.terrain?.worldSizeMeters || 500;
   const terrainResX = cfg?.terrain?.resolutionX || 128;
   const terrainResY = cfg?.terrain?.resolutionY || 128;
+  console.log('[viewer] worldSize:', worldSize);
+  console.log('[viewer] terrain resolution:', terrainResX, terrainResY);
 
   const fallback = fallbackTerrainTexture();
   const texture = await tryLoadTexture(cfg?.imagery, fallback);
@@ -189,6 +207,12 @@ async function init() {
       metalness: 0
     })
   );
+  console.log('[viewer] terrain mesh created:', {
+    worldSize,
+    displacementScale: Number(cfg?.terrain?.maxHeightMeters) || 12,
+    hasTexture: !!texture,
+    hasDisplacementMap: !!dispMap
+  });
   terrain.rotation.x = -Math.PI / 2;
   terrain.receiveShadow = true;
   scene.add(terrain);

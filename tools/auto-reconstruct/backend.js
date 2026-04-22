@@ -259,6 +259,32 @@ app.post('/api/reconstruct', async (req, res) => {
       bounds
     };
 
+    console.log('[backend] reconstruct payload:', {
+      ok: latestReconstructResult?.ok,
+      scene: {
+        terrain: latestReconstructResult?.scene?.terrain && {
+          worldSizeMeters: latestReconstructResult.scene.terrain.worldSizeMeters,
+          maxHeightMeters: latestReconstructResult.scene.terrain.maxHeightMeters,
+          resolutionX: latestReconstructResult.scene.terrain.resolutionX,
+          resolutionY: latestReconstructResult.scene.terrain.resolutionY,
+          width: latestReconstructResult.scene.terrain.width,
+          height: latestReconstructResult.scene.terrain.height
+        },
+        bounds: latestReconstructResult?.scene?.bounds
+      },
+      imageryLength:
+        typeof latestReconstructResult?.imagery === 'string'
+          ? latestReconstructResult.imagery.length
+          : null,
+      terrainLength:
+        typeof latestReconstructResult?.terrain === 'string'
+          ? latestReconstructResult.terrain.length
+          : null,
+      roadsCount: Array.isArray(latestReconstructResult?.roads)
+        ? latestReconstructResult.roads.length
+        : null
+    });
+
     await fs.writeFile(path.join(TMP_DIR, 'scene.json'), JSON.stringify(latestReconstructResult, null, 2));
     return res.json(latestReconstructResult);
   } catch (err) {
