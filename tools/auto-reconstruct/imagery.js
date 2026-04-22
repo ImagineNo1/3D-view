@@ -312,6 +312,10 @@ async function fetchAutoImagery(googleMapsUrl, options = {}) {
   };
 }
 
+function imageryBufferToDataUrl(buffer) {
+  return `data:image/png;base64,${Buffer.from(buffer).toString('base64')}`;
+}
+
 module.exports = {
   TILE_SIZE,
   GRID_SIZE,
@@ -323,5 +327,6 @@ module.exports = {
   fetchTileGrid,
   mergeTiles,
   fetchAutoImagery,
-  makeFallbackTileRaw
+  makeFallbackTileRaw,
+  imageryBufferToDataUrl
 };

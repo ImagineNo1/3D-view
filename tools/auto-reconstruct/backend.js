@@ -2,19 +2,53 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const { spawn } = require('node:child_process');
 const express = require('express');
-const { fetchAutoImagery, parseGoogleMapsUrl } = require('./imagery');
+const { fetchAutoImagery, parseGoogleMapsUrl, imageryBufferToDataUrl } = require('./imagery');
 const { extractBuildings } = require('./segmentation');
 const { buildSceneGeometry } = require('./geo');
+const { encodeHeightmapPng } = require('./terrain');
 
 const PORT = Number(process.env.PORT || 5050);
 const TMP_DIR = '/tmp/auto-reconstruct';
 const app = express();
-const memoryAssets = new Map();
+let latestReconstructResult = null;
 
 app.use(express.json({ limit: '20mb' }));
 
-function setAsset(name, value, contentType) {
-  memoryAssets.set(name, { value, contentType });
+function normalizeRoads(roads = [], imageWidth = 0, imageHeight = 0, pixelScaleMeters = 1) {
+  if (!Array.isArray(roads)) return [];
+  const cx = imageWidth / 2;
+  const cy = imageHeight / 2;
+  return roads
+    .map((road, idx) => {
+      const poly = Array.isArray(road?.polygon) ? road.polygon : [];
+      const points = poly
+        .filter((pt) => Array.isArray(pt) && Number.isFinite(pt[0]) && Number.isFinite(pt[1]))
+        .map(([x, y]) => [((x - cx) * pixelScaleMeters), ((y - cy) * pixelScaleMeters)]);
+      if (points.length < 2) return null;
+      return { id: road.id ?? idx, points };
+    })
+    .filter(Boolean);
+}
+
+function buildBounds(terrain, buildings = []) {
+  const worldSize = Number(terrain?.worldSizeMeters) || 0;
+  const half = worldSize / 2;
+  let minY = 0;
+  let maxY = Number(terrain?.maxHeightMeters) || 12;
+
+  for (const b of buildings) {
+    maxY = Math.max(maxY, Number(b?.height) || 0);
+  }
+
+  return {
+    minX: -half,
+    maxX: half,
+    minY,
+    maxY,
+    minZ: -half,
+    maxZ: half,
+    center: { x: 0, y: (minY + maxY) / 2, z: 0 }
+  };
 }
 
 function createProceduralNoiseHeightmap(width, height) {
@@ -109,10 +143,11 @@ async function runPythonSegmentation(imagePath) {
   });
 }
 
-app.get('/viewer-assets/:name', (req, res) => {
-  const asset = memoryAssets.get(req.params.name);
-  if (!asset) return res.status(404).json({ error: 'asset not found' });
-  return res.type(asset.contentType).send(asset.value);
+app.get('/api/reconstruct', (_req, res) => {
+  if (!latestReconstructResult) {
+    return res.status(404).json({ ok: false, error: 'No reconstruction has been generated yet' });
+  }
+  return res.json(latestReconstructResult);
 });
 
 app.post('/api/reconstruct', async (req, res) => {
@@ -143,7 +178,6 @@ app.post('/api/reconstruct', async (req, res) => {
       imagery = await fetchAutoImagery(googleMapsUrl, { forceMock: Boolean(forceMock) });
     }
 
-    setAsset('satellite.png', imagery.buffer, 'image/png');
     await fs.writeFile(path.join(TMP_DIR, 'satellite.png'), imagery.buffer);
 
     let heightmap;
@@ -155,15 +189,15 @@ app.post('/api/reconstruct', async (req, res) => {
       heightmap = { bytes, width: imagery.width, height: imagery.height, png: null, source: 'procedural' };
     }
 
-    if (heightmap.png) {
-      setAsset('heightmap.png', heightmap.png, 'image/png');
-      await fs.writeFile(path.join(TMP_DIR, 'heightmap.png'), heightmap.png);
-    }
+    const terrainPng = heightmap.png || await encodeHeightmapPng(heightmap.bytes, heightmap.width, heightmap.height);
+    await fs.writeFile(path.join(TMP_DIR, 'heightmap.png'), terrainPng);
 
     let footprintPayload;
+    let roadsPayload = [];
     try {
       const py = await runPythonSegmentation(path.join(TMP_DIR, 'satellite.png'));
       footprintPayload = py.footprints_with_height || py.footprints || [];
+      roadsPayload = py.roads || [];
     } catch (err) {
       errors.push(`python segmentation failed: ${err.message}`);
       const js = extractBuildings({ buffer: imagery.rgbaBuffer, width: imagery.width, height: imagery.height });
@@ -173,6 +207,13 @@ app.post('/api/reconstruct', async (req, res) => {
         height_m: b.height,
         type: b.type
       }));
+      roadsPayload = [{
+        id: 0,
+        polygon: [
+          [0, imagery.height * 0.5],
+          [imagery.width, imagery.height * 0.5]
+        ]
+      }];
     }
 
     if (!Array.isArray(footprintPayload) || footprintPayload.length === 0) {
@@ -187,8 +228,8 @@ app.post('/api/reconstruct', async (req, res) => {
       errors.push('footprints empty, fallback square used');
     }
 
-    setAsset('footprints.json', JSON.stringify(footprintPayload), 'application/json');
     await fs.writeFile(path.join(TMP_DIR, 'footprints.json'), JSON.stringify(footprintPayload, null, 2));
+    await fs.writeFile(path.join(TMP_DIR, 'roads.json'), JSON.stringify(roadsPayload, null, 2));
 
     const geometry = buildSceneGeometry({
       footprints: footprintPayload,
@@ -199,20 +240,27 @@ app.post('/api/reconstruct', async (req, res) => {
       imageHeight: imagery.height,
       pixelScaleMeters: 1
     });
+    const roads = normalizeRoads(roadsPayload, imagery.width, imagery.height, 1);
+    const bounds = buildBounds(geometry.terrain, geometry.buildings);
 
     const scene = {
       mapCenter: { lat: loc.lat, lon: loc.lng, zoom: loc.zoom },
-      imagery: { path: '/viewer-assets/satellite.png', width: imagery.width, height: imagery.height },
-      heightmap: { path: '/viewer-assets/heightmap.png', width: heightmap.width, height: heightmap.height },
       terrain: geometry.terrain,
       buildings: geometry.buildings,
       diagnostics: { imageryMode: imagery.mode || (imagery.fallback ? 'mock' : 'live'), fallbackImagery: imagery.fallback, heightmapSource: heightmap.source, errors }
     };
 
-    setAsset('scene.json', JSON.stringify(scene), 'application/json');
-    await fs.writeFile(path.join(TMP_DIR, 'scene.json'), JSON.stringify(scene, null, 2));
+    latestReconstructResult = {
+      ok: true,
+      scene,
+      terrain: imageryBufferToDataUrl(terrainPng),
+      imagery: imageryBufferToDataUrl(imagery.buffer),
+      roads,
+      bounds
+    };
 
-    return res.json({ ok: true, assets: ['/viewer-assets/scene.json'], diagnostics: scene.diagnostics });
+    await fs.writeFile(path.join(TMP_DIR, 'scene.json'), JSON.stringify(latestReconstructResult, null, 2));
+    return res.json(latestReconstructResult);
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message || String(err) });
   }

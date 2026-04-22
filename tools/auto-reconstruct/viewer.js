@@ -49,7 +49,7 @@ async function loadJson(path) {
 }
 
 async function tryLoadScene() {
-  const candidates = ['/viewer-assets/scene.json', './scene.json', 'scene.json'];
+  const candidates = ['/api/reconstruct', './scene.json', 'scene.json'];
   for (const p of candidates) {
     try {
       return await loadJson(p);
@@ -60,12 +60,18 @@ async function tryLoadScene() {
   return null;
 }
 
-async function tryLoadTexture(path, fallback) {
-  if (!path) return fallback;
+async function tryLoadTexture(dataUrl, fallback) {
+  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return fallback;
   try {
-    const loader = new THREE.TextureLoader();
-    const texture = await loader.loadAsync(path);
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = dataUrl;
+    });
+    const texture = new THREE.Texture(img);
     texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
     return texture;
   } catch {
     return fallback;
@@ -138,15 +144,39 @@ function addBuildings(sceneCfg) {
   return group;
 }
 
+function addRoads(sceneCfg) {
+  const roads = Array.isArray(sceneCfg?.roads) ? sceneCfg.roads : [];
+  const group = new THREE.Group();
+  for (const road of roads) {
+    if (!Array.isArray(road?.points) || road.points.length < 2) continue;
+    const positions = road.points.map(([x, z]) => new THREE.Vector3(x, 0.25, z));
+    const geom = new THREE.BufferGeometry().setFromPoints(positions);
+    const line = new THREE.Line(
+      geom,
+      new THREE.LineBasicMaterial({ color: '#222222' })
+    );
+    group.add(line);
+  }
+  scene.add(group);
+  return group;
+}
+
 async function init() {
-  const cfg = await tryLoadScene();
+  const payload = await tryLoadScene();
+  const cfg = payload?.scene ? {
+    ...payload.scene,
+    imagery: payload.imagery,
+    terrainPng: payload.terrain,
+    roads: payload.roads,
+    bounds: payload.bounds
+  } : payload;
 
   const worldSize = cfg?.terrain?.worldSizeMeters || 500;
   const terrainResX = cfg?.terrain?.resolutionX || 128;
   const terrainResY = cfg?.terrain?.resolutionY || 128;
 
   const fallback = fallbackTerrainTexture();
-  const texture = await tryLoadTexture(cfg?.imagery?.path, fallback);
+  const texture = await tryLoadTexture(cfg?.imagery, fallback);
   const dispMap = buildDisplacementTexture(cfg || {});
 
   const terrain = new THREE.Mesh(
@@ -164,6 +194,7 @@ async function init() {
   scene.add(terrain);
 
   const group = addBuildings(cfg || {});
+  addRoads(cfg || {});
 
   const bounds = new THREE.Box3().setFromObject(group);
   const center = bounds.isEmpty() ? new THREE.Vector3(0, 0, 0) : bounds.getCenter(new THREE.Vector3());
