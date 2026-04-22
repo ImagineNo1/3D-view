@@ -259,7 +259,7 @@ app.post('/api/reconstruct', async (req, res) => {
       bounds
     };
 
-    console.log('[backend] reconstruct payload:', {
+    console.log("[backend] reconstruct payload:", {
       ok: latestReconstructResult?.ok,
       scene: {
         terrain: latestReconstructResult?.scene?.terrain && {
@@ -273,11 +273,11 @@ app.post('/api/reconstruct', async (req, res) => {
         bounds: latestReconstructResult?.scene?.bounds
       },
       imageryLength:
-        typeof latestReconstructResult?.imagery === 'string'
+        typeof latestReconstructResult?.imagery === "string"
           ? latestReconstructResult.imagery.length
           : null,
       terrainLength:
-        typeof latestReconstructResult?.terrain === 'string'
+        typeof latestReconstructResult?.terrain === "string"
           ? latestReconstructResult.terrain.length
           : null,
       roadsCount: Array.isArray(latestReconstructResult?.roads)
