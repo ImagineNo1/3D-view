@@ -42,25 +42,33 @@ function fallbackTerrainTexture(size = 512) {
   return tex;
 }
 
-function getMapUrlFromQuery() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('url') || params.get('mapUrl') || '';
-}
-
 async function loadScene(mapUrl) {
-  const res = await fetch('/api/reconstruct', {
-    method: 'POST',
+  console.log("[Viewer] Sending POST /api/reconstruct with:", mapUrl);
+
+  const res = await fetch("/api/reconstruct", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({ url: mapUrl })
   });
 
   if (!res.ok) {
-    throw new Error(`Reconstruction request failed: ${res.status}`);
+    console.error("[Viewer] Reconstruction failed:", res.status);
+    throw new Error("Reconstruction failed with status " + res.status);
   }
 
-  return res.json();
+  const scene = await res.json();
+
+  if (!scene || !scene.terrain || !scene.imagery) {
+    console.error("[Viewer] Invalid scene payload:", scene);
+    throw new Error("Scene reconstruction returned incomplete data");
+  }
+
+  console.log("[Viewer] Imagery length:", scene.imagery.dataUrl?.length);
+  console.log("[Viewer] Terrain samples:", scene.terrain.heights?.slice(0, 20));
+
+  return scene;
 }
 
 function buildDisplacementTexture(sceneCfg) {
@@ -147,8 +155,15 @@ function addRoads(sceneCfg) {
 }
 
 async function init() {
-  const mapUrl = getMapUrlFromQuery();
-  const payload = await loadScene(mapUrl);
+  console.log('[Viewer] Using ONLY POST /api/reconstruct');
+  if (/\/property\//.test(window.location.pathname)) {
+    console.error('❌ GET scene load detected — this must be removed');
+    throw new Error('Legacy GET load path executed');
+  }
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const url = searchParams.get('url') || searchParams.get('mapUrl');
+  const payload = await loadScene(url);
   const scenePayload = payload?.scene;
 
   if (!scenePayload || !scenePayload.terrain) {
@@ -160,9 +175,6 @@ async function init() {
     roads: payload?.roads,
     bounds: payload?.bounds
   };
-
-  console.log('Imagery loaded?', scenePayload.imagery?.dataUrl?.length);
-  console.log('Terrain samples:', scenePayload.terrain?.heights?.slice(0, 20));
 
   const worldSize = scenePayload.terrain.worldSizeMeters || 500;
   const terrainResX = scenePayload.terrain.width || 128;

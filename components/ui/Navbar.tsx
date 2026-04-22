@@ -19,7 +19,7 @@ export function Navbar() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/api/admin/session', { cache: 'no-store' });
+        const response = await fetch('/api/admin/session', { method: 'GET', cache: 'no-store' });
         const data = (await response.json()) as { authenticated?: boolean; role?: string | null };
         setIsAdmin(data.authenticated === true && data.role === 'admin');
       } catch {

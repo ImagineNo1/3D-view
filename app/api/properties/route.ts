@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
 
     const baseSlug = createBaseSlug(payload.title!);
     const slug = appendSlugSuffix(baseSlug || 'property');
-    const publicUrl = `${getBaseUrl()}/property/${slug}`;
+    const encodedMapUrl = encodeURIComponent(payload.googleMapsUrl?.trim() || '');
+    const publicUrl = `${getBaseUrl()}/?mapUrl=${encodedMapUrl}`;
     const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, { width: 300, margin: 2 });
 
     const property = await Property.create({

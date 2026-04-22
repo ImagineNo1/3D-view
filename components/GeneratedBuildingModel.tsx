@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -34,6 +35,40 @@ type GeneratedBuildingModelProps = {
   rotation?: number;
 };
 
+type ScenePayload = {
+  terrain?: { heights?: number[] };
+  imagery?: { dataUrl?: string };
+};
+
+async function loadScene(mapUrl: string) {
+  console.log("[Viewer] Sending POST /api/reconstruct with:", mapUrl);
+
+  const res = await fetch("/api/reconstruct", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ url: mapUrl })
+  });
+
+  if (!res.ok) {
+    console.error("[Viewer] Reconstruction failed:", res.status);
+    throw new Error("Reconstruction failed with status " + res.status);
+  }
+
+  const scene = await res.json();
+
+  if (!scene || !scene.terrain || !scene.imagery) {
+    console.error("[Viewer] Invalid scene payload:", scene);
+    throw new Error("Scene reconstruction returned incomplete data");
+  }
+
+  console.log("[Viewer] Imagery length:", scene.imagery.dataUrl?.length);
+  console.log("[Viewer] Terrain samples:", scene.terrain.heights?.slice(0, 20));
+
+  return scene;
+}
+
 export default function GeneratedBuildingModel({
   buildingArea,
   buildingHeight,
@@ -45,6 +80,7 @@ export default function GeneratedBuildingModel({
   aerialImage,
   rotation
 }: GeneratedBuildingModelProps) {
+  const searchParams = useSearchParams();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const controlsRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
@@ -54,7 +90,39 @@ export default function GeneratedBuildingModel({
   const [autoRotate, setAutoRotate] = useState(false);
   const [gpuPreferred, setGpuPreferred] = useState(false);
   const [projections, setProjections] = useState<ProjectionCanvases | null>(null);
+  const [scenePayload, setScenePayload] = useState<ScenePayload | null>(null);
   const [tier, setTier] = useState<TierConfig>(() => detectTier(false));
+
+  useEffect(() => {
+    const legacyGetPattern = /\/property\//;
+    if (legacyGetPattern.test(window.location.pathname)) {
+      console.error('❌ GET scene load detected — this must be removed');
+      throw new Error('Legacy GET load path executed');
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log('[Viewer] Using ONLY POST /api/reconstruct');
+  }, []);
+
+  useEffect(() => {
+    const url = searchParams.get('url') || searchParams.get('mapUrl');
+    if (!url) return;
+
+    let active = true;
+    loadScene(url)
+      .then((scene) => {
+        if (!active) return;
+        setScenePayload(scene as ScenePayload);
+      })
+      .catch((error) => {
+        console.error('[Viewer] Failed to load scene from /api/reconstruct:', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [searchParams]);
 
   const model = useMemo(
     () =>
@@ -66,10 +134,10 @@ export default function GeneratedBuildingModel({
         latitude,
         longitude,
         facadeImages,
-        aerialImage,
+        aerialImage: scenePayload?.imagery?.dataUrl ?? aerialImage,
         rotation
       }),
-    [buildingArea, buildingHeight, floorCount, floorHeight, latitude, longitude, facadeImages, aerialImage, rotation]
+    [buildingArea, buildingHeight, floorCount, floorHeight, latitude, longitude, facadeImages, aerialImage, rotation, scenePayload]
   );
 
   useEffect(() => {
