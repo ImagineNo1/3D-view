@@ -42,20 +42,25 @@ function fallbackTerrainTexture(size = 512) {
   return tex;
 }
 
-async function loadJson(path) {
-  const res = await fetch(path);
-  if (!res.ok) throw new Error(`failed ${path}: ${res.status}`);
-  return res.json();
+function getMapUrlFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('url') || params.get('mapUrl') || '';
 }
 
-async function tryLoadScene() {
-  const candidates = ['/api/reconstruct', './scene.json', 'scene.json'];
-  for (const p of candidates) {
-    try {
-      return await loadJson(p);
-    } catch {}
+async function loadScene(mapUrl) {
+  const res = await fetch('/api/reconstruct', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ url: mapUrl })
+  });
+
+  if (!res.ok) {
+    throw new Error(`Reconstruction request failed: ${res.status}`);
   }
-  return null;
+
+  return res.json();
 }
 
 function buildDisplacementTexture(sceneCfg) {
@@ -142,62 +147,48 @@ function addRoads(sceneCfg) {
 }
 
 async function init() {
-  const payload = await tryLoadScene();
-  if (!payload) throw new Error('No payload');
+  const mapUrl = getMapUrlFromQuery();
+  const payload = await loadScene(mapUrl);
+  const scenePayload = payload?.scene;
+
+  if (!scenePayload || !scenePayload.terrain) {
+    throw new Error('Scene reconstruction failed');
+  }
 
   const cfg = {
-    ...payload.scene,
-    imagery: payload.scene?.imagery || { dataUrl: payload.imagery },
-    terrainPng: payload.terrain,
-    roads: payload.roads,
-    bounds: payload.bounds
+    ...scenePayload,
+    roads: payload?.roads,
+    bounds: payload?.bounds
   };
-  console.log("[viewer] payload scene:", payload?.scene && {
-    terrain: payload.scene.terrain && {
-      width: payload.scene.terrain.width,
-      height: payload.scene.terrain.height,
-      worldSizeMeters: payload.scene.terrain.worldSizeMeters,
-      maxHeightMeters: payload.scene.terrain.maxHeightMeters,
-      resolutionX: payload.scene.terrain.resolutionX,
-      resolutionY: payload.scene.terrain.resolutionY
-    },
-    bounds: payload.scene.bounds
-  });
-  console.log("[viewer] payload root bounds:", payload?.bounds || null);
 
-  console.log("Imagery loaded?", cfg.imagery && cfg.imagery.dataUrl?.length);
-  console.log("Terrain samples:", (cfg.terrain?.heights || []).slice(0, 20));
+  console.log('Imagery loaded?', scenePayload.imagery?.dataUrl?.length);
+  console.log('Terrain samples:', scenePayload.terrain?.heights?.slice(0, 20));
 
-  const worldSize = cfg?.terrain?.worldSizeMeters || 500;
-  const terrainResX = cfg?.terrain?.resolutionX || 128;
-  const terrainResY = cfg?.terrain?.resolutionY || 128;
-  console.log("[viewer] worldSize:", worldSize);
-  console.log("[viewer] terrain resolution:", terrainResX, terrainResY);
+  const worldSize = scenePayload.terrain.worldSizeMeters || 500;
+  const terrainResX = scenePayload.terrain.width || 128;
+  const terrainResY = scenePayload.terrain.height || 128;
 
   const fallback = fallbackTerrainTexture();
-  const texture = cfg?.imagery?.dataUrl
-    ? new THREE.TextureLoader().load(cfg.imagery.dataUrl)
+  const texture = scenePayload.imagery?.dataUrl
+    ? new THREE.TextureLoader().load(scenePayload.imagery.dataUrl)
     : fallback;
   texture.colorSpace = THREE.SRGBColorSpace;
-  const dispMap = buildDisplacementTexture(cfg || {});
+
+  const dispMap = buildDisplacementTexture(scenePayload);
+
+  const material = new THREE.MeshStandardMaterial({
+    map: texture,
+    displacementMap: dispMap,
+    displacementScale: Number(scenePayload?.terrain?.maxHeightMeters) || 12,
+    roughness: 0.95,
+    metalness: 0,
+    side: THREE.DoubleSide
+  });
 
   const terrain = new THREE.Mesh(
     new THREE.PlaneGeometry(worldSize, worldSize, terrainResX, terrainResY),
-    new THREE.MeshStandardMaterial({
-      map: texture,
-      displacementMap: dispMap,
-      displacementScale: Number(cfg?.terrain?.maxHeightMeters) || 12,
-      roughness: 0.95,
-      metalness: 0,
-      side: THREE.DoubleSide
-    })
+    material
   );
-  console.log("[viewer] terrain mesh created:", {
-    worldSize,
-    displacementScale: Number(cfg?.terrain?.maxHeightMeters) || 12,
-    hasTexture: !!texture,
-    hasDisplacementMap: !!dispMap
-  });
   terrain.rotation.x = -Math.PI / 2;
   terrain.receiveShadow = true;
   scene.add(terrain);
