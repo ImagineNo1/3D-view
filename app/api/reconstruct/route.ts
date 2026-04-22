@@ -3,15 +3,17 @@ import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { fetchAutoImagery, parseGoogleMapsUrl, imageryBufferToDataUrl } = require('../../../tools/auto-reconstruct/imagery');
+const { fetchAutoImagery, parseGoogleMapsUrl, imageryBufferToDataUrl, latLngToTile } = require('../../../tools/auto-reconstruct/imagery');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { extractBuildings } = require('../../../tools/auto-reconstruct/segmentation');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildSceneGeometry } = require('../../../tools/auto-reconstruct/geo');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { encodeHeightmapPng } = require('../../../tools/auto-reconstruct/terrain');
+const { encodeHeightmapPng, fetchTerrainHeightmap } = require('../../../tools/auto-reconstruct/terrain');
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type ReconstructPayload = {
   ok: boolean;
@@ -44,7 +46,7 @@ function normalizeRoads(roads: Array<{ id?: number; polygon?: number[][] }> = []
 function buildBounds(terrain: { worldSizeMeters?: number; maxHeightMeters?: number }, buildings: Array<{ height?: number }> = []) {
   const worldSize = Number(terrain?.worldSizeMeters) || 0;
   const half = worldSize / 2;
-  let minY = 0;
+  const minY = 0;
   let maxY = Number(terrain?.maxHeightMeters) || 12;
 
   for (const b of buildings) {
@@ -60,55 +62,6 @@ function buildBounds(terrain: { worldSizeMeters?: number; maxHeightMeters?: numb
     maxZ: half,
     center: { x: 0, y: (minY + maxY) / 2, z: 0 }
   };
-}
-
-function createProceduralNoiseHeightmap(width: number, height: number) {
-  const out = new Uint8Array(width * height);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const i = y * width + x;
-      const v = Math.sin(x * 0.05) * 0.5 + Math.cos(y * 0.04) * 0.5 + Math.sin((x + y) * 0.02) * 0.5;
-      out[i] = Math.round((v * 0.5 + 0.5) * 255);
-    }
-  }
-  return out;
-}
-
-async function generateHeightmapFromImagery(rgbaBuffer: Buffer, width: number, height: number) {
-  const gray = new Float32Array(width * height);
-  for (let i = 0, p = 0; i < gray.length; i += 1, p += 4) {
-    gray[i] = 0.299 * rgbaBuffer[p] + 0.587 * rgbaBuffer[p + 1] + 0.114 * rgbaBuffer[p + 2];
-  }
-
-  const blur = new Float32Array(gray.length);
-  const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
-  for (let y = 1; y < height - 1; y += 1) {
-    for (let x = 1; x < width - 1; x += 1) {
-      let sum = 0;
-      let ki = 0;
-      for (let oy = -1; oy <= 1; oy += 1) {
-        for (let ox = -1; ox <= 1; ox += 1) {
-          sum += gray[(y + oy) * width + (x + ox)] * kernel[ki++];
-        }
-      }
-      blur[y * width + x] = sum / 16;
-    }
-  }
-
-  let min = Infinity;
-  let max = -Infinity;
-  for (let i = 0; i < blur.length; i += 1) {
-    if (blur[i] < min) min = blur[i];
-    if (blur[i] > max) max = blur[i];
-  }
-
-  const span = Math.max(1, max - min);
-  const heightmap = new Uint8Array(width * height);
-  for (let i = 0; i < blur.length; i += 1) {
-    heightmap[i] = Math.max(0, Math.min(255, Math.round(((blur[i] - min) / span) * 255)));
-  }
-
-  return { bytes: heightmap, width, height, source: 'js' };
 }
 
 export async function GET() {
@@ -130,16 +83,9 @@ export async function POST(request: NextRequest) {
     const imagery = await fetchAutoImagery(googleMapsUrl);
     await writeFile(path.join(TMP_DIR, 'satellite.png'), imagery.buffer);
 
-    let heightmap;
-    try {
-      heightmap = await generateHeightmapFromImagery(imagery.rgbaBuffer, imagery.width, imagery.height);
-    } catch (err) {
-      errors.push(`heightmap failed: ${err instanceof Error ? err.message : String(err)}`);
-      const bytes = createProceduralNoiseHeightmap(imagery.width, imagery.height);
-      heightmap = { bytes, width: imagery.width, height: imagery.height, source: 'procedural' };
-    }
-
-    const terrainPng = await encodeHeightmapPng(heightmap.bytes, heightmap.width, heightmap.height);
+    const centerTile = latLngToTile(loc.lat, loc.lng, loc.zoom);
+    const terrainMap = await fetchTerrainHeightmap(centerTile);
+    const terrainPng = await encodeHeightmapPng(terrainMap.bytes, terrainMap.width, terrainMap.height);
     await writeFile(path.join(TMP_DIR, 'heightmap.png'), terrainPng);
 
     const js = extractBuildings({ buffer: imagery.rgbaBuffer, width: imagery.width, height: imagery.height });
@@ -173,9 +119,9 @@ export async function POST(request: NextRequest) {
 
     const geometry = buildSceneGeometry({
       footprints: footprintPayload,
-      heightmapBytes: heightmap.bytes,
-      heightmapWidth: heightmap.width,
-      heightmapHeight: heightmap.height,
+      heightmapBytes: terrainMap.bytes,
+      heightmapWidth: terrainMap.width,
+      heightmapHeight: terrainMap.height,
       imageWidth: imagery.width,
       imageHeight: imagery.height,
       pixelScaleMeters: 1
@@ -183,15 +129,20 @@ export async function POST(request: NextRequest) {
 
     const roads = normalizeRoads(roadsPayload, imagery.width, imagery.height, 1) as Array<{ id: number; points: number[][] }>;
     const bounds = buildBounds(geometry.terrain, geometry.buildings);
+    const imageryDataUrl = imageryBufferToDataUrl(imagery.buffer);
 
     const scene = {
       mapCenter: { lat: loc.lat, lon: loc.lng, zoom: loc.zoom },
       terrain: geometry.terrain,
       buildings: geometry.buildings,
+      imagery: {
+        dataUrl: imageryDataUrl,
+        mimeType: 'image/png'
+      },
       diagnostics: {
         imageryMode: imagery.mode || (imagery.fallback ? 'mock' : 'live'),
         fallbackImagery: imagery.fallback,
-        heightmapSource: heightmap.source,
+        heightmapSource: terrainMap.source,
         errors
       }
     };
@@ -200,7 +151,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       scene,
       terrain: imageryBufferToDataUrl(terrainPng),
-      imagery: imageryBufferToDataUrl(imagery.buffer),
+      imagery: imageryDataUrl,
       roads,
       bounds,
       buildings: geometry.buildings

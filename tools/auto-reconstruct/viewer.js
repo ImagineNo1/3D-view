@@ -58,24 +58,6 @@ async function tryLoadScene() {
   return null;
 }
 
-async function tryLoadTexture(dataUrl, fallback) {
-  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return fallback;
-  try {
-    const img = await new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = reject;
-      image.src = dataUrl;
-    });
-    const texture = new THREE.Texture(img);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.needsUpdate = true;
-    return texture;
-  } catch {
-    return fallback;
-  }
-}
-
 function buildDisplacementTexture(sceneCfg) {
   const w = sceneCfg?.terrain?.width || 128;
   const h = sceneCfg?.terrain?.height || 128;
@@ -165,7 +147,7 @@ async function init() {
 
   const cfg = {
     ...payload.scene,
-    imagery: payload.imagery,
+    imagery: payload.scene?.imagery || { dataUrl: payload.imagery },
     terrainPng: payload.terrain,
     roads: payload.roads,
     bounds: payload.bounds
@@ -183,10 +165,8 @@ async function init() {
   });
   console.log("[viewer] payload root bounds:", payload?.bounds || null);
 
-  console.log(
-    "[viewer] imagery base64 length:",
-    typeof payload.imagery === "string" ? payload.imagery.length : null
-  );
+  console.log("Imagery loaded?", cfg.imagery && cfg.imagery.dataUrl?.length);
+  console.log("Terrain samples:", (cfg.terrain?.heights || []).slice(0, 20));
 
   const worldSize = cfg?.terrain?.worldSizeMeters || 500;
   const terrainResX = cfg?.terrain?.resolutionX || 128;
@@ -195,7 +175,10 @@ async function init() {
   console.log("[viewer] terrain resolution:", terrainResX, terrainResY);
 
   const fallback = fallbackTerrainTexture();
-  const texture = await tryLoadTexture(cfg?.imagery, fallback);
+  const texture = cfg?.imagery?.dataUrl
+    ? new THREE.TextureLoader().load(cfg.imagery.dataUrl)
+    : fallback;
+  texture.colorSpace = THREE.SRGBColorSpace;
   const dispMap = buildDisplacementTexture(cfg || {});
 
   const terrain = new THREE.Mesh(
@@ -205,7 +188,8 @@ async function init() {
       displacementMap: dispMap,
       displacementScale: Number(cfg?.terrain?.maxHeightMeters) || 12,
       roughness: 0.95,
-      metalness: 0
+      metalness: 0,
+      side: THREE.DoubleSide
     })
   );
   console.log("[viewer] terrain mesh created:", {

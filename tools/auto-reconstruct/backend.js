@@ -2,10 +2,10 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const { spawn } = require('node:child_process');
 const express = require('express');
-const { fetchAutoImagery, parseGoogleMapsUrl, imageryBufferToDataUrl } = require('./imagery');
+const { fetchAutoImagery, parseGoogleMapsUrl, imageryBufferToDataUrl, latLngToTile } = require('./imagery');
 const { extractBuildings } = require('./segmentation');
 const { buildSceneGeometry } = require('./geo');
-const { encodeHeightmapPng } = require('./terrain');
+const { encodeHeightmapPng, fetchTerrainHeightmap } = require('./terrain');
 
 const PORT = Number(process.env.PORT || 5050);
 const TMP_DIR = '/tmp/auto-reconstruct';
@@ -49,73 +49,6 @@ function buildBounds(terrain, buildings = []) {
     maxZ: half,
     center: { x: 0, y: (minY + maxY) / 2, z: 0 }
   };
-}
-
-function createProceduralNoiseHeightmap(width, height) {
-  const out = new Uint8Array(width * height);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const i = y * width + x;
-      const v = Math.sin(x * 0.05) * 0.5 + Math.cos(y * 0.04) * 0.5 + Math.sin((x + y) * 0.02) * 0.5;
-      out[i] = Math.round((v * 0.5 + 0.5) * 255);
-    }
-  }
-  return out;
-}
-
-async function generateHeightmapFromImagery(rgbaBuffer, width, height) {
-  const gray = new Float32Array(width * height);
-  for (let i = 0, p = 0; i < gray.length; i += 1, p += 4) {
-    gray[i] = 0.299 * rgbaBuffer[p] + 0.587 * rgbaBuffer[p + 1] + 0.114 * rgbaBuffer[p + 2];
-  }
-
-  const blur = new Float32Array(gray.length);
-  const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
-  for (let y = 1; y < height - 1; y += 1) {
-    for (let x = 1; x < width - 1; x += 1) {
-      let sum = 0;
-      let ki = 0;
-      for (let oy = -1; oy <= 1; oy += 1) {
-        for (let ox = -1; ox <= 1; ox += 1) {
-          sum += gray[(y + oy) * width + (x + ox)] * kernel[ki++];
-        }
-      }
-      blur[y * width + x] = sum / 16;
-    }
-  }
-
-  let min = Infinity;
-  let max = -Infinity;
-  for (let i = 0; i < blur.length; i += 1) {
-    if (blur[i] < min) min = blur[i];
-    if (blur[i] > max) max = blur[i];
-  }
-
-  const span = Math.max(1, max - min);
-  const heightmap = new Uint8Array(width * height);
-  for (let i = 0; i < blur.length; i += 1) {
-    heightmap[i] = Math.max(0, Math.min(255, Math.round(((blur[i] - min) / span) * 255)));
-  }
-
-  let sharpLib;
-  try {
-    // eslint-disable-next-line global-require
-    sharpLib = require('sharp');
-  } catch {
-    return {
-      bytes: heightmap,
-      png: null,
-      width,
-      height,
-      source: 'js-fallback-no-sharp'
-    };
-  }
-
-  const png = await sharpLib(heightmap, {
-    raw: { width, height, channels: 1 }
-  }).png().toBuffer();
-
-  return { bytes: heightmap, png, width, height, source: 'js' };
 }
 
 async function runPythonSegmentation(imagePath) {
@@ -180,16 +113,9 @@ app.post('/api/reconstruct', async (req, res) => {
 
     await fs.writeFile(path.join(TMP_DIR, 'satellite.png'), imagery.buffer);
 
-    let heightmap;
-    try {
-      heightmap = await generateHeightmapFromImagery(imagery.rgbaBuffer, imagery.width, imagery.height);
-    } catch (err) {
-      errors.push(`heightmap failed: ${err.message}`);
-      const bytes = createProceduralNoiseHeightmap(imagery.width, imagery.height);
-      heightmap = { bytes, width: imagery.width, height: imagery.height, png: null, source: 'procedural' };
-    }
-
-    const terrainPng = heightmap.png || await encodeHeightmapPng(heightmap.bytes, heightmap.width, heightmap.height);
+    const centerTile = latLngToTile(loc.lat, loc.lng, loc.zoom);
+    const heightmap = await fetchTerrainHeightmap(centerTile);
+    const terrainPng = await encodeHeightmapPng(heightmap.bytes, heightmap.width, heightmap.height);
     await fs.writeFile(path.join(TMP_DIR, 'heightmap.png'), terrainPng);
 
     let footprintPayload;
@@ -243,10 +169,12 @@ app.post('/api/reconstruct', async (req, res) => {
     const roads = normalizeRoads(roadsPayload, imagery.width, imagery.height, 1);
     const bounds = buildBounds(geometry.terrain, geometry.buildings);
 
+    const imageryDataUrl = imageryBufferToDataUrl(imagery.buffer);
     const scene = {
       mapCenter: { lat: loc.lat, lon: loc.lng, zoom: loc.zoom },
       terrain: geometry.terrain,
       buildings: geometry.buildings,
+      imagery: { dataUrl: imageryDataUrl, mimeType: 'image/png' },
       diagnostics: { imageryMode: imagery.mode || (imagery.fallback ? 'mock' : 'live'), fallbackImagery: imagery.fallback, heightmapSource: heightmap.source, errors }
     };
 
@@ -254,7 +182,7 @@ app.post('/api/reconstruct', async (req, res) => {
       ok: true,
       scene,
       terrain: imageryBufferToDataUrl(terrainPng),
-      imagery: imageryBufferToDataUrl(imagery.buffer),
+      imagery: imageryDataUrl,
       roads,
       bounds
     };
