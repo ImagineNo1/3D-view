@@ -53,9 +53,7 @@ async function tryLoadScene() {
   for (const p of candidates) {
     try {
       return await loadJson(p);
-    } catch {
-      // try next
-    }
+    } catch {}
   }
   return null;
 }
@@ -163,13 +161,15 @@ function addRoads(sceneCfg) {
 
 async function init() {
   const payload = await tryLoadScene();
-  const cfg = payload?.scene ? {
+  if (!payload) throw new Error('No payload');
+
+  const cfg = {
     ...payload.scene,
     imagery: payload.imagery,
     terrainPng: payload.terrain,
     roads: payload.roads,
     bounds: payload.bounds
-  } : payload;
+  };
 
   const worldSize = cfg?.terrain?.worldSizeMeters || 500;
   const terrainResX = cfg?.terrain?.resolutionX || 128;
