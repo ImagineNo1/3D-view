@@ -124,4 +124,20 @@ function generateTerrain({ buffer, width, height, pixelSizeMeters }) {
   };
 }
 
-module.exports = { generateTerrain };
+async function encodeHeightmapPng(heightmapBytes, width, height, options = {}) {
+  let sharpLib = options.sharpLib;
+  if (!sharpLib) {
+    try {
+      // eslint-disable-next-line global-require
+      sharpLib = require('sharp');
+    } catch {
+      throw new Error('sharp is required to encode terrain PNG');
+    }
+  }
+
+  return sharpLib(heightmapBytes, {
+    raw: { width, height, channels: 1 }
+  }).png().toBuffer();
+}
+
+module.exports = { generateTerrain, encodeHeightmapPng };
