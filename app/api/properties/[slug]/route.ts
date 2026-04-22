@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import Property from '@/models/Property';
 import type { PropertyPayload } from '@/types/property';
 import { parseGoogleMapsUrl } from '@/lib/maps';
+import { getBaseUrl } from '@/lib/url';
 
 function normalizeOptionalNumber(value: unknown) {
   const parsed = Number(value);
@@ -54,6 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           rotation: normalizeOptionalNumber(payload.rotation),
           latitude: mapsCoordinates?.lat,
           longitude: mapsCoordinates?.lng,
+          publicUrl: `${getBaseUrl()}/property/${slug}`,
         }
       },
       { new: true }

@@ -54,7 +54,7 @@ export function PropertyList({ properties, onDeleted, onEdit }: Props) {
                   <button onClick={() => deleteProperty(property.slug)} disabled={deletingSlug === property.slug} className="rounded-lg bg-red-100 px-3 py-1 text-red-700">
                     {deletingSlug === property.slug ? t.admin.deleting : t.common.remove}
                   </button>
-                  <Link href={`/?mapUrl=${encodeURIComponent(property.googleMapsUrl ?? '')}`} className="rounded-lg bg-slate-900 px-3 py-1 text-white">{t.common.view}</Link>
+                  <Link href={`/property/${property.slug}`} className="rounded-lg bg-slate-900 px-3 py-1 text-white">{t.common.view}</Link>
                 </div>
               </td>
             </tr>
