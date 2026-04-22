@@ -65,10 +65,7 @@ function buildBounds(terrain: { worldSizeMeters?: number; maxHeightMeters?: numb
 }
 
 export async function GET() {
-  if (!latestReconstructResult) {
-    return NextResponse.json({ ok: false, error: 'No reconstruction has been generated yet' }, { status: 404 });
-  }
-  return NextResponse.json(latestReconstructResult);
+  return NextResponse.json({ ok: false, error: 'GET not allowed. Use POST /api/reconstruct only.' }, { status: 405 });
 }
 
 export async function POST(request: NextRequest) {

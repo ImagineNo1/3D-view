@@ -21,7 +21,7 @@ export function AdminDashboard({ initialTab = 'form' }: Props) {
 
   useEffect(() => {
     const fetchProperties = async () => {
-      const response = await fetch('/api/properties');
+      const response = await fetch('/api/properties', { method: 'GET' });
       const data = (await response.json()) as Property[];
       setProperties(data);
       setLoading(false);
