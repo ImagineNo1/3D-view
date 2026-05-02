@@ -13,6 +13,9 @@ export type PropertyPayload = {
   floorCount?: number;
   floorHeight?: number;
   rotation?: number;
+  modelUrl?: string;
+  footprintWidth?: number;
+  footprintDepth?: number;
 };
 
 export type Property = PropertyPayload & {

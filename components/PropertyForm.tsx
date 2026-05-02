@@ -117,6 +117,9 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [floorCount, setFloorCount] = useState(editing?.floorCount?.toString() || '');
   const [floorHeight, setFloorHeight] = useState(editing?.floorHeight?.toString() || '');
   const [rotation, setRotation] = useState(editing?.rotation?.toString() || '');
+  const [modelUrl, setModelUrl] = useState(editing?.modelUrl || '');
+  const [footprintWidth, setFootprintWidth] = useState(editing?.footprintWidth?.toString() || '');
+  const [footprintDepth, setFootprintDepth] = useState(editing?.footprintDepth?.toString() || '');
   const [facadeFrontImages, setFacadeFrontImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[0] ? [existingFacades[0]] : []));
   const [facadeBackImages, setFacadeBackImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[1] ? [existingFacades[1]] : []));
   const [facadeLeftImages, setFacadeLeftImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[2] ? [existingFacades[2]] : []));
@@ -145,7 +148,10 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
     buildingHeight: parseOptionalNumber(buildingHeight),
     floorCount: parseOptionalNumber(floorCount),
     floorHeight: parseOptionalNumber(floorHeight),
-    rotation: parseOptionalNumber(rotation)
+    rotation: parseOptionalNumber(rotation),
+    modelUrl: modelUrl.trim() || undefined,
+    footprintWidth: parseOptionalNumber(footprintWidth),
+    footprintDepth: parseOptionalNumber(footprintDepth)
   });
 
   const uploadBatch = async (category: 'gallery' | 'aerial', items: UploadItem[]) => {
@@ -250,6 +256,19 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
         <label className="space-y-1 text-sm text-slate-700">
           <span className="font-medium">Rotation (deg)</span>
           <input type="number" step="0.1" value={rotation} onChange={(event) => setRotation(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
+        </label>
+
+        <label className="space-y-1 text-sm text-slate-700">
+          <span className="font-medium">Footprint width (m)</span>
+          <input type="number" min="1" step="0.1" value={footprintWidth} onChange={(event) => setFootprintWidth(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
+        </label>
+        <label className="space-y-1 text-sm text-slate-700">
+          <span className="font-medium">Footprint depth (m)</span>
+          <input type="number" min="1" step="0.1" value={footprintDepth} onChange={(event) => setFootprintDepth(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
+        </label>
+        <label className="space-y-1 text-sm text-slate-700 md:col-span-2">
+          <span className="font-medium">Model URL (.glb/.gltf optional)</span>
+          <input type="url" value={modelUrl} onChange={(event) => setModelUrl(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
       </div>
 

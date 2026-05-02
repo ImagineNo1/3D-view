@@ -15,6 +15,9 @@ export interface IProperty {
   floorCount?: number;
   floorHeight?: number;
   rotation?: number;
+  modelUrl?: string;
+  footprintWidth?: number;
+  footprintDepth?: number;
   latitude?: number;
   longitude?: number;
   slug: string;
@@ -38,6 +41,9 @@ const PropertySchema = new Schema<IProperty>(
     floorCount: { type: Number },
     floorHeight: { type: Number },
     rotation: { type: Number },
+    modelUrl: { type: String, trim: true },
+    footprintWidth: { type: Number },
+    footprintDepth: { type: Number },
     latitude: { type: Number },
     longitude: { type: Number },
     slug: { type: String, required: true, unique: true, index: true },
