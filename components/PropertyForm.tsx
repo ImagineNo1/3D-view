@@ -122,9 +122,9 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [footprintDepth, setFootprintDepth] = useState(editing?.footprintDepth?.toString() || '');
   const [environmentPreset, setEnvironmentPreset] = useState(editing?.siteContext?.environmentPreset || 'urban_street');
   const [contextMode, setContextMode] = useState(editing?.siteContext?.contextMode || 'manual');
-  const [facadeMode, setFacadeMode] = useState(editing?.buildingAppearance?.facadeMode || 'hybrid');
+  const [facadeMode, setFacadeMode] = useState(editing?.buildingAppearance?.facadeMode || (editing ? 'hybrid' : 'image'));
   const [roofType, setRoofType] = useState(editing?.buildingAppearance?.roofType || 'parapet');
-  const [sceneMode, setSceneMode] = useState(editing?.viewerRealismMode?.sceneMode || 'procedural');
+  const [sceneMode, setSceneMode] = useState(editing?.viewerRealismMode?.sceneMode || (editing ? 'procedural' : 'real_aerial'));
   const [aerialImageUrl, setAerialImageUrl] = useState(editing?.aerialContext?.aerialImageUrl || editing?.images?.aerial?.[0] || '');
   const [aerialSource, setAerialSource] = useState(editing?.aerialContext?.aerialSource || 'other');
   const [aerialAttribution, setAerialAttribution] = useState(editing?.aerialContext?.aerialAttribution || '');
@@ -237,18 +237,18 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   };
 
   return (
-    <form className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
+    <form className="property-form space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
       <div className="space-y-1 border-b border-slate-100 pb-4">
         <h2 className="text-2xl font-semibold text-slate-900">{editing ? t.admin.editProperty : t.admin.createProperty}</h2>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">{t.admin.title}</span>
+          <span className="font-medium">{t.admin.title}</span><span className="helper-text">Public project/property name shown on the QR landing page.</span>
           <input required value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.admin.title} className="w-full rounded-xl border px-3 py-2 text-right" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">{t.admin.mapsUrl}</span>
+          <span className="font-medium">{t.admin.mapsUrl}</span><span className="helper-text">Exact Google Maps link for opening the property location.</span>
           <input type="url" value={googleMapsUrl} onChange={(event) => setGoogleMapsUrl(event.target.value)} placeholder={t.admin.mapsUrl} className="w-full rounded-xl border px-3 py-2 text-right" />
           {parsedFromUrl && <p className="text-xs text-emerald-700">{t.admin.coordsParsed}: {parsedFromUrl.lat}, {parsedFromUrl.lng}</p>}
         </label>
@@ -256,43 +256,43 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
 
       <div className="grid gap-4 md:grid-cols-3">
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Building area (m²)</span>
+          <span className="font-medium">Building area (m²)</span><span className="helper-text">Total building area or footprint estimate used for 3D sizing.</span>
           <input type="number" min="1" step="0.1" value={buildingArea} onChange={(event) => setBuildingArea(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Building height (m)</span>
+          <span className="font-medium">Building height (m)</span><span className="helper-text">Total height of the building in meters.</span>
           <input type="number" min="1" step="0.1" value={buildingHeight} onChange={(event) => setBuildingHeight(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Floors</span>
+          <span className="font-medium">Floors</span><span className="helper-text">Number of floors used for scale and floor guide lines.</span>
           <input type="number" min="1" step="1" value={floorCount} onChange={(event) => setFloorCount(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Floor height (m)</span>
+          <span className="font-medium">Floor height (m)</span><span className="helper-text">Average height of each floor.</span>
           <input type="number" min="0" step="0.1" value={floorHeight} onChange={(event) => setFloorHeight(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Rotation (deg)</span>
+          <span className="font-medium">Rotation (deg)</span><span className="helper-text">Manual building rotation in the 3D scene.</span>
           <input type="number" step="0.1" value={rotation} onChange={(event) => setRotation(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
 
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Footprint width (m)</span>
+          <span className="font-medium">Footprint width (m)</span><span className="helper-text">Real building width on the ground.</span>
           <input type="number" min="1" step="0.1" value={footprintWidth} onChange={(event) => setFootprintWidth(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Footprint depth (m)</span>
+          <span className="font-medium">Footprint depth (m)</span><span className="helper-text">Real building depth on the ground.</span>
           <input type="number" min="1" step="0.1" value={footprintDepth} onChange={(event) => setFootprintDepth(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700 md:col-span-2">
-          <span className="font-medium">Model URL (.glb/.gltf optional)</span>
+          <span className="font-medium">Model URL (.glb/.gltf optional)</span><span className="helper-text">Optional ready-made 3D model file.</span>
           <input type="url" value={modelUrl} onChange={(event) => setModelUrl(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
       </div>
 
 
       <details className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium">Building Appearance</summary>
+        <summary className="cursor-pointer font-medium">Building Appearance</summary><p className="field-help mt-1">Controls how the building facade and roof are rendered.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="text-sm">Facade Mode
             <select value={facadeMode} onChange={(e)=>setFacadeMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="hybrid">hybrid</option><option value="image">image</option><option value="procedural">procedural</option></select>
@@ -305,23 +305,30 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
 
       
       <details className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium">Real Aerial Context</summary>
+        <summary className="cursor-pointer font-medium">Real Aerial Context</summary><p className="field-help mt-1">Use a real aerial image as the ground/environment for the public 3D page.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="text-sm">Scene mode<select value={sceneMode} onChange={(e)=>setSceneMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="procedural">procedural</option><option value="real_aerial">real_aerial</option><option value="real_aerial_with_osm">real_aerial_with_osm</option><option value="mixed">mixed</option></select></label>
-          <label className="text-sm">Aerial image URL<input value={aerialImageUrl} onChange={(e)=>setAerialImageUrl(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Real aerial image URL<input value={aerialImageUrl} onChange={(e)=>setAerialImageUrl(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
           <label className="text-sm">Aerial source<select value={aerialSource} onChange={(e)=>setAerialSource(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="other">other</option><option value="drone">drone</option><option value="licensed_orthophoto">licensed_orthophoto</option><option value="google_maps_screenshot">google_maps_screenshot</option><option value="osm">osm</option></select></label>
           <label className="text-sm">Attribution<input value={aerialAttribution} onChange={(e)=>setAerialAttribution(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Aerial width meters<input value={aerialWidthMeters} onChange={(e)=>setAerialWidthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Aerial depth meters<input value={aerialDepthMeters} onChange={(e)=>setAerialDepthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Meters per pixel<input value={metersPerPixel} onChange={(e)=>setMetersPerPixel(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Aerial rotation deg<input value={aerialRotationDeg} onChange={(e)=>setAerialRotationDeg(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Real-world image width (m)<input value={aerialWidthMeters} onChange={(e)=>setAerialWidthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Real-world image depth (m)<input value={aerialDepthMeters} onChange={(e)=>setAerialDepthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Scale: meters per pixel<input value={metersPerPixel} onChange={(e)=>setMetersPerPixel(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Aerial image rotation (deg)<input value={aerialRotationDeg} onChange={(e)=>setAerialRotationDeg(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
           <label className="text-sm md:col-span-2"><input type="checkbox" checked={allowProceduralFallback} onChange={(e)=>setAllowProceduralFallback(e.target.checked)} className="mr-2"/>Allow procedural fallback</label>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 md:col-span-2">
+            <p><b>Scene mode:</b> {sceneMode}</p>
+            <p><b>Aerial image:</b> {aerialImageUrl ? 'configured' : 'missing'}</p>
+            <p><b>Scale:</b> {(aerialWidthMeters && aerialDepthMeters) || metersPerPixel ? 'configured' : 'missing'}</p>
+            <p><b>Building footprint:</b> {editing?.aerialContext?.buildingFootprintImagePoints ? 'configured' : 'missing'}</p>
+            <p><b>Facade photos:</b> {[facadeFrontImages[0],facadeBackImages[0],facadeLeftImages[0],facadeRightImages[0]].filter(Boolean).length}/4</p>
+          </div>
           {aerialSource==='google_maps_screenshot' ? <p className="text-xs text-amber-700 md:col-span-2">Make sure you have the rights to use this imagery in the public property page and catalogue.</p> : null}
         </div>
       </details>
 
       <details className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium">Site Context</summary>
+        <summary className="cursor-pointer font-medium">Site Context</summary><p className="field-help mt-1">Controls procedural or map-based surroundings used as fallback or enhancement.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="text-sm">Context Mode
             <select value={contextMode} onChange={(e)=>setContextMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="manual">manual</option><option value="hybrid">hybrid</option><option value="osm">osm</option></select>
@@ -383,8 +390,8 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
           multiple={false}
         />
         <ImageUploader
-          label={t.admin.aerial}
-          helperText={t.admin.uploadHintAerial}
+          label="Aerial Images"
+          helperText="Use one primary aerial image. If empty, the viewer falls back to a neutral/procedural ground only when fallback is enabled."
           value={aerialImages}
           onChange={setAerialImages}
           progressById={progressById}
