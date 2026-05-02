@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
       modelUrl: payload.modelUrl?.trim(),
       footprintWidth: normalizeOptionalNumber(payload.footprintWidth),
       footprintDepth: normalizeOptionalNumber(payload.footprintDepth),
+      buildingAppearance: payload.buildingAppearance ?? undefined,
+      siteContext: payload.siteContext ?? undefined,
       latitude,
       longitude,
       slug,

@@ -120,6 +120,10 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [modelUrl, setModelUrl] = useState(editing?.modelUrl || '');
   const [footprintWidth, setFootprintWidth] = useState(editing?.footprintWidth?.toString() || '');
   const [footprintDepth, setFootprintDepth] = useState(editing?.footprintDepth?.toString() || '');
+  const [environmentPreset, setEnvironmentPreset] = useState(editing?.siteContext?.environmentPreset || 'urban_street');
+  const [contextMode, setContextMode] = useState(editing?.siteContext?.contextMode || 'manual');
+  const [facadeMode, setFacadeMode] = useState(editing?.buildingAppearance?.facadeMode || 'hybrid');
+  const [roofType, setRoofType] = useState(editing?.buildingAppearance?.roofType || 'parapet');
   const [facadeFrontImages, setFacadeFrontImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[0] ? [existingFacades[0]] : []));
   const [facadeBackImages, setFacadeBackImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[1] ? [existingFacades[1]] : []));
   const [facadeLeftImages, setFacadeLeftImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[2] ? [existingFacades[2]] : []));
@@ -151,7 +155,9 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
     rotation: parseOptionalNumber(rotation),
     modelUrl: modelUrl.trim() || undefined,
     footprintWidth: parseOptionalNumber(footprintWidth),
-    footprintDepth: parseOptionalNumber(footprintDepth)
+    footprintDepth: parseOptionalNumber(footprintDepth),
+    buildingAppearance: { facadeMode, roofType },
+    siteContext: { environmentPreset, contextMode }
   });
 
   const uploadBatch = async (category: 'gallery' | 'aerial', items: UploadItem[]) => {
@@ -271,6 +277,31 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
           <input type="url" value={modelUrl} onChange={(event) => setModelUrl(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
       </div>
+
+
+      <details className="rounded-xl border p-3">
+        <summary className="cursor-pointer font-medium">Building Appearance</summary>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <label className="text-sm">Facade Mode
+            <select value={facadeMode} onChange={(e)=>setFacadeMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="hybrid">hybrid</option><option value="image">image</option><option value="procedural">procedural</option></select>
+          </label>
+          <label className="text-sm">Roof Type
+            <select value={roofType} onChange={(e)=>setRoofType(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="parapet">parapet</option><option value="flat">flat</option><option value="gable">gable</option></select>
+          </label>
+        </div>
+      </details>
+
+      <details className="rounded-xl border p-3">
+        <summary className="cursor-pointer font-medium">Site Context</summary>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <label className="text-sm">Context Mode
+            <select value={contextMode} onChange={(e)=>setContextMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="manual">manual</option><option value="hybrid">hybrid</option><option value="osm">osm</option></select>
+          </label>
+          <label className="text-sm">Environment Preset
+            <select value={environmentPreset} onChange={(e)=>setEnvironmentPreset(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="urban_street">urban_street</option><option value="dense_urban">dense_urban</option><option value="suburban">suburban</option><option value="villa">villa</option><option value="commercial_strip">commercial_strip</option></select>
+          </label>
+        </div>
+      </details>
 
       <label className="block space-y-1 text-sm text-slate-700">
         <span className="font-medium">{t.admin.description}</span>

@@ -18,6 +18,8 @@ export interface IProperty {
   modelUrl?: string;
   footprintWidth?: number;
   footprintDepth?: number;
+  buildingAppearance?: Record<string, unknown>;
+  siteContext?: Record<string, unknown>;
   latitude?: number;
   longitude?: number;
   slug: string;
@@ -44,6 +46,8 @@ const PropertySchema = new Schema<IProperty>(
     modelUrl: { type: String, trim: true },
     footprintWidth: { type: Number },
     footprintDepth: { type: Number },
+    buildingAppearance: { type: Schema.Types.Mixed },
+    siteContext: { type: Schema.Types.Mixed },
     latitude: { type: Number },
     longitude: { type: Number },
     slug: { type: String, required: true, unique: true, index: true },

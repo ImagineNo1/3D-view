@@ -56,6 +56,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       modelUrl: payload.modelUrl?.trim(),
       footprintWidth: normalizeOptionalNumber(payload.footprintWidth),
       footprintDepth: normalizeOptionalNumber(payload.footprintDepth),
+      buildingAppearance: payload.buildingAppearance ?? undefined,
+      siteContext: payload.siteContext ?? undefined,
           latitude: mapsCoordinates?.lat,
           longitude: mapsCoordinates?.lng,
           publicUrl: `${getBaseUrl()}/property/${slug}`,

@@ -65,7 +65,9 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
             facadeRightUrl: property.images?.gallery?.[3],
             modelUrl: property.modelUrl,
             footprintWidth: property.footprintWidth,
-            footprintDepth: property.footprintDepth
+            footprintDepth: property.footprintDepth,
+            buildingAppearance: property.buildingAppearance,
+            siteContext: property.siteContext
           }}
         />
       </section>
