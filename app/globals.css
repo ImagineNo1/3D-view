@@ -160,3 +160,18 @@ html[dir="rtl"] a[class*="rounded"] {
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
 }
+
+:root {
+  --estate-bg: #eef3f8; --estate-card:#ffffff; --estate-navy:#0f172a; --estate-text:#111827; --estate-muted:#64748b; --estate-label:#25364d; --estate-border:#dbe3ee; --estate-input-bg:#ffffff; --estate-input-text:#0f172a; --estate-placeholder:#94a3b8; --estate-helper:#64748b; --estate-focus:#2563eb;
+}
+.admin-dashboard,.admin-form,.property-form{color-scheme:light;}
+.property-form input,.property-form textarea,.property-form select{background-color:var(--estate-input-bg)!important;color:var(--estate-input-text)!important;border:1px solid var(--estate-border)!important;-webkit-text-fill-color:var(--estate-input-text);}
+.property-form input::placeholder,.property-form textarea::placeholder{color:var(--estate-placeholder)!important;opacity:1}
+.property-form select option{background:#fff;color:#0f172a}
+.property-form label,.property-form summary{color:var(--estate-label)}
+.property-form .helper-text,.property-form .field-help{color:var(--estate-helper);font-size:.76rem}
+.property-form input:focus,.property-form textarea:focus,.property-form select:focus{outline:none;border-color:var(--estate-focus)!important;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.property-form details{background:#fff;border:1px solid var(--estate-border);border-radius:.75rem}
+.property-form summary{font-weight:600;cursor:pointer}
+.property-form details[open]{box-shadow:0 1px 0 rgba(15,23,42,.03)}
+.property-form input:-webkit-autofill,.property-form textarea:-webkit-autofill,.property-form select:-webkit-autofill{-webkit-box-shadow:0 0 0 1000px #fff inset!important;-webkit-text-fill-color:#0f172a!important}

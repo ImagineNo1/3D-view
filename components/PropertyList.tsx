@@ -46,7 +46,7 @@ export function PropertyList({ properties, onDeleted, onEdit }: Props) {
               <td className="px-4 py-3 font-medium">{property.title}</td>
               <td className="px-4 py-3 text-slate-500">/{property.slug}</td>
               <td className="px-4 py-3">
-                <Image src={property.qrCodeDataUrl} alt={t.property.qr} width={44} height={44} className="rounded border" />
+                <Link href={property.publicUrl} target="_blank"><Image src={property.qrCodeDataUrl} alt={t.property.qr} width={44} height={44} className="rounded border" /></Link>
               </td>
               <td className="px-4 py-3">
                 <div className="flex flex-wrap gap-2">
@@ -54,7 +54,8 @@ export function PropertyList({ properties, onDeleted, onEdit }: Props) {
                   <button onClick={() => deleteProperty(property.slug)} disabled={deletingSlug === property.slug} className="rounded-lg bg-red-100 px-3 py-1 text-red-700">
                     {deletingSlug === property.slug ? t.admin.deleting : t.common.remove}
                   </button>
-                  <Link href={`/property/${property.slug}`} className="rounded-lg bg-slate-900 px-3 py-1 text-white">{t.common.view}</Link>
+                  <Link href={`/property/${property.slug}`} className="rounded-lg bg-slate-900 px-3 py-1 text-white">View Page</Link>
+                  <a href={property.qrCodeDataUrl} download={`${property.slug}-qr.png`} className="rounded-lg border px-3 py-1">QR Code</a>
                 </div>
               </td>
             </tr>
