@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CopyLinkButton } from '@/components/CopyLinkButton';
-import { Property3DViewer } from '@/components/Property3DViewer';
+import { PropertyPublicViewer } from '@/components/PropertyPublicViewer';
 import { ImageGallery } from '@/components/ImageGallery';
 import { MapEmbed } from '@/components/MapEmbed';
 import { connectToDatabase } from '@/lib/mongodb';
@@ -47,32 +47,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
       </section>
 
       <section className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white/80 shadow-sm">
-        <Property3DViewer
-          data={{
-            id: String(property._id),
-            slug: property.slug,
-            title: property.title,
-            googleMapsUrl: property.googleMapsUrl,
-            buildingArea: property.buildingArea,
-            buildingHeight: property.buildingHeight,
-            floors: property.floorCount,
-            floorHeight: property.floorHeight,
-            rotationDeg: property.rotation,
-            description: property.description,
-            facadeFrontUrl: property.images?.gallery?.[0],
-            facadeBackUrl: property.images?.gallery?.[1],
-            facadeLeftUrl: property.images?.gallery?.[2],
-            facadeRightUrl: property.images?.gallery?.[3],
-            modelUrl: property.modelUrl,
-            footprintWidth: property.footprintWidth,
-            footprintDepth: property.footprintDepth,
-            buildingAppearance: property.buildingAppearance,
-            siteContext: property.siteContext,
-            aerialContext: property.aerialContext,
-            realFacadeTextures: property.realFacadeTextures,
-            viewerRealismMode: property.viewerRealismMode
-          }}
-        />
+<PropertyPublicViewer property={property} />
       </section>
 
       {property.googleMapsUrl ? <Link href={property.googleMapsUrl} target="_blank" className="inline-flex w-fit rounded-lg bg-slate-900 px-4 py-2 text-white">Open in Google Maps</Link> : null}

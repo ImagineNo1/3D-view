@@ -25,6 +25,11 @@ export interface IProperty {
   viewerRealismMode?: Record<string, unknown>;
   latitude?: number;
   longitude?: number;
+  cameraAltitude?: number;
+  cameraTilt?: number;
+  cameraHeading?: number;
+  cameraRange?: number;
+  viewerMode?: 'three_procedural' | 'google_3d_maps' | 'cesium_google_3d_tiles';
   slug: string;
   qrCodeDataUrl: string;
   publicUrl: string;
@@ -56,6 +61,11 @@ const PropertySchema = new Schema<IProperty>(
     viewerRealismMode: { type: Schema.Types.Mixed },
     latitude: { type: Number },
     longitude: { type: Number },
+    cameraAltitude: { type: Number, default: 300 },
+    cameraTilt: { type: Number, default: 65 },
+    cameraHeading: { type: Number, default: 0 },
+    cameraRange: { type: Number, default: 300 },
+    viewerMode: { type: String, enum: ['three_procedural', 'google_3d_maps', 'cesium_google_3d_tiles'], default: 'google_3d_maps' },
     slug: { type: String, required: true, unique: true, index: true },
     qrCodeDataUrl: { type: String, required: true },
     publicUrl: { type: String, required: true }

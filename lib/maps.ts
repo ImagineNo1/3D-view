@@ -3,7 +3,7 @@ export type ParsedGoogleMaps = {
   lng: number;
 };
 
-const COORDINATE_REGEX = /(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/;
+const COORDINATE_REGEX = /(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)/;
 
 const isValidCoordinate = (lat: number, lng: number) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 
@@ -13,30 +13,32 @@ export function parseGoogleMapsUrl(url: string): ParsedGoogleMaps | null {
   const trimmedUrl = url.trim();
   if (!trimmedUrl) return null;
 
+  const tryExtract = (candidate: string): ParsedGoogleMaps | null => {
+    const match = candidate.match(COORDINATE_REGEX);
+    if (!match) return null;
+    const lat = Number(match[1]);
+    const lng = Number(match[2]);
+    return isValidCoordinate(lat, lng) ? { lat, lng } : null;
+  };
+
   try {
     const parsed = new URL(trimmedUrl);
-    if (!parsed.hostname.includes('google.')) return null;
-
     const query = parsed.searchParams.get('q') || parsed.searchParams.get('query') || '';
-
-    const searchCandidates = [parsed.href, parsed.pathname, query];
-
-    for (const candidate of searchCandidates) {
-      const match = candidate.match(COORDINATE_REGEX);
-      if (!match) continue;
-
-      const lat = Number(match[1]);
-      const lng = Number(match[2]);
-
-      if (isValidCoordinate(lat, lng)) {
-        return { lat, lng };
+    const candidates = [parsed.href, parsed.pathname, query];
+    for (const c of candidates) {
+      const m = c.match(/!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/);
+      if (m) {
+        const lat = Number(m[1]); const lng = Number(m[2]);
+        if (isValidCoordinate(lat, lng)) return { lat, lng };
       }
+      const found = tryExtract(c);
+      if (found) return found;
     }
-
-    return null;
   } catch {
-    return null;
+    return tryExtract(trimmedUrl);
   }
+
+  return tryExtract(trimmedUrl);
 }
 
 export function buildMapEmbedUrl({ lat, lng }: ParsedGoogleMaps): string {

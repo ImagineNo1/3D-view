@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from 'react';
 import { ImageUploader, normalizeExistingImages, type UploadItem, type UploadStatus } from '@/components/admin/ImageUploader';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { parseGoogleMapsUrl } from '@/lib/maps';
-import type { Property, PropertyPayload } from '@/types/property';
+import type { Property, PropertyPayload, PropertyViewerMode } from '@/types/property';
 
 type Props = {
   onCreated: (property: Property) => void;
@@ -112,6 +112,13 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [title, setTitle] = useState(editing?.title || '');
   const [description, setDescription] = useState(editing?.description || '');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(editing?.googleMapsUrl || '');
+  const [latitude, setLatitude] = useState(editing?.latitude?.toString() || '');
+  const [longitude, setLongitude] = useState(editing?.longitude?.toString() || '');
+  const [viewerMode, setViewerMode] = useState<PropertyViewerMode>(editing?.viewerMode || 'google_3d_maps');
+  const [cameraAltitude, setCameraAltitude] = useState((editing?.cameraAltitude ?? 300).toString());
+  const [cameraTilt, setCameraTilt] = useState((editing?.cameraTilt ?? 65).toString());
+  const [cameraHeading, setCameraHeading] = useState((editing?.cameraHeading ?? 0).toString());
+  const [cameraRange, setCameraRange] = useState((editing?.cameraRange ?? 300).toString());
   const [buildingArea, setBuildingArea] = useState(editing?.buildingArea?.toString() || '');
   const [buildingHeight, setBuildingHeight] = useState(editing?.buildingHeight?.toString() || '');
   const [floorCount, setFloorCount] = useState(editing?.floorCount?.toString() || '');
@@ -169,7 +176,14 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
     siteContext: { environmentPreset, contextMode },
     aerialContext: { aerialImageUrl, aerialSource, aerialAttribution, aerialWidthMeters: parseOptionalNumber(aerialWidthMeters), aerialDepthMeters: parseOptionalNumber(aerialDepthMeters), aerialMetersPerPixel: parseOptionalNumber(metersPerPixel), aerialRotationDeg: parseOptionalNumber(aerialRotationDeg), allowProceduralFallback },
     realFacadeTextures: { facadeFront: { imageUrl: gallery[0] }, facadeBack: { imageUrl: gallery[1] }, facadeLeft: { imageUrl: gallery[2] }, facadeRight: { imageUrl: gallery[3] }, facadeApplicationMode: "hybrid" },
-    viewerRealismMode: { sceneMode, disableFakeSurroundings: true, disableProceduralFacadeDetailsWhenPhotosExist: true }
+    viewerRealismMode: { sceneMode, disableFakeSurroundings: true, disableProceduralFacadeDetailsWhenPhotosExist: true },
+    latitude: parseOptionalNumber(latitude) ?? parsedFromUrl?.lat,
+    longitude: parseOptionalNumber(longitude) ?? parsedFromUrl?.lng,
+    viewerMode,
+    cameraAltitude: parseOptionalNumber(cameraAltitude) ?? 300,
+    cameraTilt: parseOptionalNumber(cameraTilt) ?? 65,
+    cameraHeading: parseOptionalNumber(cameraHeading) ?? 0,
+    cameraRange: parseOptionalNumber(cameraRange) ?? 300
   });
 
   const uploadBatch = async (category: 'gallery' | 'aerial', items: UploadItem[]) => {
@@ -249,7 +263,7 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
         </label>
         <label className="space-y-1 text-sm text-slate-700">
           <span className="font-medium">{t.admin.mapsUrl}</span><span className="helper-text">Exact Google Maps link for opening the property location.</span>
-          <input type="url" value={googleMapsUrl} onChange={(event) => setGoogleMapsUrl(event.target.value)} placeholder={t.admin.mapsUrl} className="w-full rounded-xl border px-3 py-2 text-right" />
+          <input type="url" value={googleMapsUrl} onChange={(event) => { const v = event.target.value; setGoogleMapsUrl(v); const parsed = parseGoogleMapsUrl(v); if (parsed) { setLatitude(String(parsed.lat)); setLongitude(String(parsed.lng)); } }} placeholder={t.admin.mapsUrl} className="w-full rounded-xl border px-3 py-2 text-right" />
           {parsedFromUrl && <p className="text-xs text-emerald-700">{t.admin.coordsParsed}: {parsedFromUrl.lat}, {parsedFromUrl.lng}</p>}
         </label>
       </div>
@@ -290,6 +304,22 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
         </label>
       </div>
 
+
+      <section className="rounded-xl border border-slate-200 p-4">
+        <h3 className="text-lg font-semibold text-slate-900">3D Public Viewer</h3>
+        <p className="mt-1 text-xs text-slate-600">Use google_3d_maps for the fastest real 3D city/environment viewer. It uses Google photorealistic 3D coverage when available.</p>
+        <p className="mt-1 text-xs text-amber-700">3D building coverage depends on Google 3D Maps availability for this location.</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <label className="text-sm">Viewer mode<select value={viewerMode} onChange={(e)=>setViewerMode(e.target.value as PropertyViewerMode)} className="mt-1 w-full rounded border px-2 py-2"><option value="three_procedural">three_procedural</option><option value="google_3d_maps">google_3d_maps</option><option value="cesium_google_3d_tiles">cesium_google_3d_tiles</option></select></label>
+          <label className="text-sm">Latitude<input value={latitude} onChange={(e)=>setLatitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Longitude<input value={longitude} onChange={(e)=>setLongitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Camera altitude<input value={cameraAltitude} onChange={(e)=>setCameraAltitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Camera tilt<input value={cameraTilt} onChange={(e)=>setCameraTilt(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Camera heading<input value={cameraHeading} onChange={(e)=>setCameraHeading(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Camera range<input value={cameraRange} onChange={(e)=>setCameraRange(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm md:col-span-2">Optional modelUrl<input type="url" value={modelUrl} onChange={(event) => setModelUrl(event.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+        </div>
+      </section>
 
       <details className="rounded-xl border p-3">
         <summary className="cursor-pointer font-medium">Building Appearance</summary><p className="field-help mt-1">Controls how the building facade and roof are rendered.</p>

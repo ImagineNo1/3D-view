@@ -31,6 +31,11 @@ export type FacadePhotoCalibration = { imageUrl?: string; sourceCorners?: [{x:nu
 export type RealFacadeTextures = { facadeFront?: FacadePhotoCalibration; facadeBack?: FacadePhotoCalibration; facadeLeft?: FacadePhotoCalibration; facadeRight?: FacadePhotoCalibration; facadeApplicationMode?: 'raw'|'calibrated'|'hybrid'; };
 export type ViewerRealismMode = { sceneMode?: 'procedural'|'real_aerial'|'real_aerial_with_osm'|'mixed'; disableFakeSurroundings?: boolean; disableProceduralFacadeDetailsWhenPhotosExist?: boolean; };
 
+export type PropertyViewerMode =
+  | 'three_procedural'
+  | 'google_3d_maps'
+  | 'cesium_google_3d_tiles';
+
 export type PropertyPayload = {
   title: string;
   description: string;
@@ -49,13 +54,18 @@ export type PropertyPayload = {
   aerialContext?: AerialContext;
   realFacadeTextures?: RealFacadeTextures;
   viewerRealismMode?: ViewerRealismMode;
+  latitude?: number;
+  longitude?: number;
+  cameraAltitude?: number;
+  cameraTilt?: number;
+  cameraHeading?: number;
+  cameraRange?: number;
+  viewerMode?: PropertyViewerMode;
 };
 
 export type Property = PropertyPayload & {
   _id: string;
   slug: string;
-  latitude?: number;
-  longitude?: number;
   qrCodeDataUrl: string;
   publicUrl: string;
   createdAt: string;
