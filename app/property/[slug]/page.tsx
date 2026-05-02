@@ -67,7 +67,10 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
             footprintWidth: property.footprintWidth,
             footprintDepth: property.footprintDepth,
             buildingAppearance: property.buildingAppearance,
-            siteContext: property.siteContext
+            siteContext: property.siteContext,
+            aerialContext: property.aerialContext,
+            realFacadeTextures: property.realFacadeTextures,
+            viewerRealismMode: property.viewerRealismMode
           }}
         />
       </section>

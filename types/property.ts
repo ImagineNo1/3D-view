@@ -25,6 +25,12 @@ export type SiteContext = {
   treeCount?: number; shrubCount?: number; parkingCount?: number; addStreetLights?: boolean; neighborMode?: 'none'|'simple'|'custom'; neighborCount?: number;
 };
 
+
+export type AerialContext = { aerialImageUrl?: string; aerialSource?: 'google_maps_screenshot'|'drone'|'licensed_orthophoto'|'osm'|'other'; aerialAttribution?: string; aerialImageWidthPx?: number; aerialImageHeightPx?: number; aerialWidthMeters?: number; aerialDepthMeters?: number; aerialMetersPerPixel?: number; aerialRotationDeg?: number; aerialScaleReference?: { p1:{x:number;y:number}; p2:{x:number;y:number}; distanceMeters:number }; buildingFootprintImagePoints?: [{x:number;y:number},{x:number;y:number},{x:number;y:number},{x:number;y:number}]; lotPolygonImagePoints?: {x:number;y:number}[]; allowProceduralFallback?: boolean; };
+export type FacadePhotoCalibration = { imageUrl?: string; sourceCorners?: [{x:number;y:number},{x:number;y:number},{x:number;y:number},{x:number;y:number}]; fitMode?: 'stretch'|'cover'|'contain'; flipX?: boolean; flipY?: boolean; rotationDeg?: number; rectifiedImageUrl?: string; };
+export type RealFacadeTextures = { facadeFront?: FacadePhotoCalibration; facadeBack?: FacadePhotoCalibration; facadeLeft?: FacadePhotoCalibration; facadeRight?: FacadePhotoCalibration; facadeApplicationMode?: 'raw'|'calibrated'|'hybrid'; };
+export type ViewerRealismMode = { sceneMode?: 'procedural'|'real_aerial'|'real_aerial_with_osm'|'mixed'; disableFakeSurroundings?: boolean; disableProceduralFacadeDetailsWhenPhotosExist?: boolean; };
+
 export type PropertyPayload = {
   title: string;
   description: string;
@@ -40,6 +46,9 @@ export type PropertyPayload = {
   footprintDepth?: number;
   buildingAppearance?: BuildingAppearance;
   siteContext?: SiteContext;
+  aerialContext?: AerialContext;
+  realFacadeTextures?: RealFacadeTextures;
+  viewerRealismMode?: ViewerRealismMode;
 };
 
 export type Property = PropertyPayload & {

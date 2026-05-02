@@ -124,6 +124,15 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [contextMode, setContextMode] = useState(editing?.siteContext?.contextMode || 'manual');
   const [facadeMode, setFacadeMode] = useState(editing?.buildingAppearance?.facadeMode || 'hybrid');
   const [roofType, setRoofType] = useState(editing?.buildingAppearance?.roofType || 'parapet');
+  const [sceneMode, setSceneMode] = useState(editing?.viewerRealismMode?.sceneMode || 'procedural');
+  const [aerialImageUrl, setAerialImageUrl] = useState(editing?.aerialContext?.aerialImageUrl || editing?.images?.aerial?.[0] || '');
+  const [aerialSource, setAerialSource] = useState(editing?.aerialContext?.aerialSource || 'other');
+  const [aerialAttribution, setAerialAttribution] = useState(editing?.aerialContext?.aerialAttribution || '');
+  const [aerialWidthMeters, setAerialWidthMeters] = useState(editing?.aerialContext?.aerialWidthMeters?.toString() || '');
+  const [aerialDepthMeters, setAerialDepthMeters] = useState(editing?.aerialContext?.aerialDepthMeters?.toString() || '');
+  const [metersPerPixel, setMetersPerPixel] = useState(editing?.aerialContext?.aerialMetersPerPixel?.toString() || '');
+  const [aerialRotationDeg, setAerialRotationDeg] = useState(editing?.aerialContext?.aerialRotationDeg?.toString() || '');
+  const [allowProceduralFallback, setAllowProceduralFallback] = useState(Boolean(editing?.aerialContext?.allowProceduralFallback ?? true));
   const [facadeFrontImages, setFacadeFrontImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[0] ? [existingFacades[0]] : []));
   const [facadeBackImages, setFacadeBackImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[1] ? [existingFacades[1]] : []));
   const [facadeLeftImages, setFacadeLeftImages] = useState<UploadItem[]>(normalizeExistingImages(existingFacades[2] ? [existingFacades[2]] : []));
@@ -157,7 +166,10 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
     footprintWidth: parseOptionalNumber(footprintWidth),
     footprintDepth: parseOptionalNumber(footprintDepth),
     buildingAppearance: { facadeMode, roofType },
-    siteContext: { environmentPreset, contextMode }
+    siteContext: { environmentPreset, contextMode },
+    aerialContext: { aerialImageUrl, aerialSource, aerialAttribution, aerialWidthMeters: parseOptionalNumber(aerialWidthMeters), aerialDepthMeters: parseOptionalNumber(aerialDepthMeters), aerialMetersPerPixel: parseOptionalNumber(metersPerPixel), aerialRotationDeg: parseOptionalNumber(aerialRotationDeg), allowProceduralFallback },
+    realFacadeTextures: { facadeFront: { imageUrl: gallery[0] }, facadeBack: { imageUrl: gallery[1] }, facadeLeft: { imageUrl: gallery[2] }, facadeRight: { imageUrl: gallery[3] }, facadeApplicationMode: "hybrid" },
+    viewerRealismMode: { sceneMode, disableFakeSurroundings: true, disableProceduralFacadeDetailsWhenPhotosExist: true }
   });
 
   const uploadBatch = async (category: 'gallery' | 'aerial', items: UploadItem[]) => {
@@ -288,6 +300,23 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
           <label className="text-sm">Roof Type
             <select value={roofType} onChange={(e)=>setRoofType(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="parapet">parapet</option><option value="flat">flat</option><option value="gable">gable</option></select>
           </label>
+        </div>
+      </details>
+
+      
+      <details className="rounded-xl border p-3">
+        <summary className="cursor-pointer font-medium">Real Aerial Context</summary>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <label className="text-sm">Scene mode<select value={sceneMode} onChange={(e)=>setSceneMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="procedural">procedural</option><option value="real_aerial">real_aerial</option><option value="real_aerial_with_osm">real_aerial_with_osm</option><option value="mixed">mixed</option></select></label>
+          <label className="text-sm">Aerial image URL<input value={aerialImageUrl} onChange={(e)=>setAerialImageUrl(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Aerial source<select value={aerialSource} onChange={(e)=>setAerialSource(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="other">other</option><option value="drone">drone</option><option value="licensed_orthophoto">licensed_orthophoto</option><option value="google_maps_screenshot">google_maps_screenshot</option><option value="osm">osm</option></select></label>
+          <label className="text-sm">Attribution<input value={aerialAttribution} onChange={(e)=>setAerialAttribution(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Aerial width meters<input value={aerialWidthMeters} onChange={(e)=>setAerialWidthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Aerial depth meters<input value={aerialDepthMeters} onChange={(e)=>setAerialDepthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Meters per pixel<input value={metersPerPixel} onChange={(e)=>setMetersPerPixel(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">Aerial rotation deg<input value={aerialRotationDeg} onChange={(e)=>setAerialRotationDeg(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm md:col-span-2"><input type="checkbox" checked={allowProceduralFallback} onChange={(e)=>setAllowProceduralFallback(e.target.checked)} className="mr-2"/>Allow procedural fallback</label>
+          {aerialSource==='google_maps_screenshot' ? <p className="text-xs text-amber-700 md:col-span-2">Make sure you have the rights to use this imagery in the public property page and catalogue.</p> : null}
         </div>
       </details>
 
