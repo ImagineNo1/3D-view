@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
 
     const mapsCoordinates = payload.googleMapsUrl ? parseGoogleMapsUrl(payload.googleMapsUrl) : null;
-    const latitude = mapsCoordinates?.lat;
-    const longitude = mapsCoordinates?.lng;
+    const latitude = normalizeOptionalNumber(payload.latitude) ?? mapsCoordinates?.lat;
+    const longitude = normalizeOptionalNumber(payload.longitude) ?? mapsCoordinates?.lng;
 
     const baseSlug = createBaseSlug(payload.title!);
     const slug = appendSlugSuffix(baseSlug || 'property');
@@ -74,6 +74,11 @@ export async function POST(request: NextRequest) {
       viewerRealismMode: payload.viewerRealismMode ?? undefined,
       latitude,
       longitude,
+      viewerMode: payload.viewerMode ?? 'google_3d_maps',
+      cameraAltitude: normalizeOptionalNumber(payload.cameraAltitude) ?? 300,
+      cameraTilt: normalizeOptionalNumber(payload.cameraTilt) ?? 65,
+      cameraHeading: normalizeOptionalNumber(payload.cameraHeading) ?? 0,
+      cameraRange: normalizeOptionalNumber(payload.cameraRange) ?? 300,
       slug,
       qrCodeDataUrl,
       publicUrl
