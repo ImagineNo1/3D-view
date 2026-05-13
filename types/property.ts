@@ -34,7 +34,10 @@ export type ViewerRealismMode = { sceneMode?: 'procedural'|'real_aerial'|'real_a
 export type PropertyViewerMode =
   | 'three_procedural'
   | 'google_3d_maps'
-  | 'cesium_google_3d_tiles';
+  | 'cesium_google_3d_tiles'
+  | 'real_world_digital_twin'
+  | 'standalone_model'
+  | 'parametric_fallback';
 
 export type PropertyPayload = {
   title: string;

@@ -70,6 +70,7 @@ export function ImageUploader({
 }: Props) {
   const { t } = useLanguage();
   const [urlInput, setUrlInput] = useState('');
+  const [brokenPreviewById, setBrokenPreviewById] = useState<Record<string, boolean>>({});
 
   const onFileSelect = (files: FileList | null) => {
     const incoming = buildUploadItems(files);
@@ -144,7 +145,11 @@ export function ImageUploader({
           return (
             <article key={item.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="relative h-28 w-full">
-                <Image src={item.url} alt={t.admin.preview} fill className="object-cover" sizes="(max-width: 768px) 50vw, 20vw" unoptimized />
+                {brokenPreviewById[item.id] ? (
+                  <div className="grid h-full place-items-center bg-slate-100 px-2 text-center text-[11px] text-slate-500">Preview unavailable</div>
+                ) : (
+                  <Image src={item.url} alt={t.admin.preview} fill className="object-cover" sizes="(max-width: 768px) 50vw, 20vw" unoptimized onError={() => setBrokenPreviewById((prev) => ({ ...prev, [item.id]: true }))} />
+                )}
               </div>
               <div className="space-y-2 px-2 py-2 text-xs">
                 <span className="block truncate text-slate-500">{item.file?.name || item.url || t.admin.savedImage}</span>

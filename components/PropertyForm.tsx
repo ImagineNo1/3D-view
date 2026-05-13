@@ -114,7 +114,7 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const [googleMapsUrl, setGoogleMapsUrl] = useState(editing?.googleMapsUrl || '');
   const [latitude, setLatitude] = useState(editing?.latitude?.toString() || '');
   const [longitude, setLongitude] = useState(editing?.longitude?.toString() || '');
-  const [viewerMode, setViewerMode] = useState<PropertyViewerMode>(editing?.viewerMode || 'google_3d_maps');
+  const [viewerMode, setViewerMode] = useState<PropertyViewerMode>(editing?.viewerMode || (editing?.modelUrl ? 'standalone_model' : 'parametric_fallback'));
   const [cameraAltitude, setCameraAltitude] = useState((editing?.cameraAltitude ?? 300).toString());
   const [cameraTilt, setCameraTilt] = useState((editing?.cameraTilt ?? 65).toString());
   const [cameraHeading, setCameraHeading] = useState((editing?.cameraHeading ?? 0).toString());
@@ -213,10 +213,44 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
     return result;
   };
 
+  const validateForm = () => {
+    const lat = parseOptionalNumber(latitude) ?? parsedFromUrl?.lat;
+    const lng = parseOptionalNumber(longitude) ?? parsedFromUrl?.lng;
+    if (lat !== undefined && (lat < -90 || lat > 90)) return 'Latitude must be between -90 and 90.';
+    if (lng !== undefined && (lng < -180 || lng > 180)) return 'Longitude must be between -180 and 180.';
+
+    const positiveFields: Array<[string, string]> = [
+      [buildingArea, 'Building area'],
+      [buildingHeight, 'Building height'],
+      [floorHeight, 'Floor height'],
+      [footprintWidth, 'Footprint width'],
+      [footprintDepth, 'Footprint depth'],
+      [cameraAltitude, 'Camera altitude'],
+      [cameraRange, 'Camera range']
+    ];
+    for (const [value, label] of positiveFields) {
+      const parsed = parseOptionalNumber(value);
+      if (value.trim() && (parsed === undefined || parsed <= 0)) return `${label} must be a positive number.`;
+    }
+
+    const floors = parseOptionalNumber(floorCount);
+    if (floorCount.trim() && (!floors || floors < 1 || !Number.isInteger(floors))) return 'Floors must be a positive integer.';
+    const trimmedModelUrl = modelUrl.trim();
+    if (trimmedModelUrl && !/\.(glb|gltf)(?:$|[?#])/i.test(trimmedModelUrl)) return 'Model URL must point to a .glb or .gltf file.';
+    return null;
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      setLoading(false);
+      return;
+    }
 
     try {
       const [facadeFront, facadeBack, facadeLeft, facadeRight, aerial] = await Promise.all([
@@ -263,7 +297,7 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
         </label>
         <label className="space-y-1 text-sm text-slate-700">
           <span className="font-medium">{t.admin.mapsUrl}</span><span className="helper-text">Exact Google Maps link for opening the property location.</span>
-          <input type="url" value={googleMapsUrl} onChange={(event) => { const v = event.target.value; setGoogleMapsUrl(v); const parsed = parseGoogleMapsUrl(v); if (parsed) { setLatitude(String(parsed.lat)); setLongitude(String(parsed.lng)); } }} placeholder={t.admin.mapsUrl} className="w-full rounded-xl border px-3 py-2 text-right" />
+          <input type="text" value={googleMapsUrl} onChange={(event) => { const v = event.target.value; setGoogleMapsUrl(v); const parsed = parseGoogleMapsUrl(v); if (parsed) { setLatitude(String(parsed.lat)); setLongitude(String(parsed.lng)); } }} placeholder={t.admin.mapsUrl} className="w-full rounded-xl border px-3 py-2 text-right" />
           {parsedFromUrl && <p className="text-xs text-emerald-700">{t.admin.coordsParsed}: {parsedFromUrl.lat}, {parsedFromUrl.lng}</p>}
         </label>
       </div>
@@ -307,10 +341,10 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
 
       <section className="rounded-xl border border-slate-200 p-4">
         <h3 className="text-lg font-semibold text-slate-900">3D Public Viewer</h3>
-        <p className="mt-1 text-xs text-slate-600">Use google_3d_maps for the fastest real 3D city/environment viewer. It uses Google photorealistic 3D coverage when available.</p>
-        <p className="mt-1 text-xs text-amber-700">3D building coverage depends on Google 3D Maps availability for this location.</p>
+        <p className="mt-1 text-xs text-slate-600">Choose how QR visitors see the property: real-world context, a supplied GLB/GLTF model, or a generated building from dimensions and facade images.</p>
+        <p className="mt-1 text-xs text-amber-700">Coordinates alone cannot generate an exact building model; use a custom GLB/GLTF for highest property-specific accuracy.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <label className="text-sm">Viewer mode<select value={viewerMode} onChange={(e)=>setViewerMode(e.target.value as PropertyViewerMode)} className="mt-1 w-full rounded border px-2 py-2"><option value="three_procedural">three_procedural</option><option value="google_3d_maps">google_3d_maps</option><option value="cesium_google_3d_tiles">cesium_google_3d_tiles</option></select></label>
+          <label className="text-sm">Viewer mode<select value={viewerMode} onChange={(e)=>setViewerMode(e.target.value as PropertyViewerMode)} className="mt-1 w-full rounded border px-2 py-2"><option value="real_world_digital_twin">Real-world digital twin</option><option value="standalone_model">Standalone uploaded model</option><option value="parametric_fallback">Generated building fallback</option></select><span className="mt-1 block text-xs text-slate-500">Real-world uses Google/Cesium-style 3D when configured, model mode uses .glb/.gltf, generated fallback uses dimensions and facade images.</span></label>
           <label className="text-sm">Latitude<input value={latitude} onChange={(e)=>setLatitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
           <label className="text-sm">Longitude<input value={longitude} onChange={(e)=>setLongitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
           <label className="text-sm">Camera altitude<input value={cameraAltitude} onChange={(e)=>setCameraAltitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
