@@ -58,11 +58,12 @@ function createProceduralGroundTexture() {
   return texture;
 }
 
-function googleSatelliteUrl(config: Estate3DConfig) {
+function mapboxSatelliteUrl(config: Estate3DConfig) {
   if (typeof config.latitude !== 'number' || typeof config.longitude !== 'number') return undefined;
-  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!key) return undefined;
-  return `https://maps.googleapis.com/maps/api/staticmap?center=${config.latitude},${config.longitude}&zoom=19&size=1280x1280&scale=2&maptype=satellite&key=${key}`;
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  if (!token) return undefined;
+  const encodedToken = encodeURIComponent(token);
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${config.longitude},${config.latitude},19,0/1280x1280@2x?access_token=${encodedToken}`;
 }
 
 function makeNeutralFacadeMaterial(color = '#cbd5e1') {
@@ -185,7 +186,7 @@ export async function createParametricBuilding(config: Estate3DConfig, renderer?
 
 export async function createGround(config: Estate3DConfig, size: number, renderer?: any) {
   const aerialTexture = await loadOptionalTexture(config.aerialImageUrl, renderer);
-  const satelliteTexture = aerialTexture ? null : await loadOptionalTexture(googleSatelliteUrl(config), renderer);
+  const satelliteTexture = aerialTexture ? null : await loadOptionalTexture(mapboxSatelliteUrl(config), renderer);
   const texture = aerialTexture || satelliteTexture || createProceduralGroundTexture();
   const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.92, metalness: 0.02 });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);

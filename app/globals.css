@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600&display=swap");
+@import "mapbox-gl/dist/mapbox-gl.css";
 @import "tailwindcss";
 
 :root {
