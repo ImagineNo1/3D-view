@@ -11,6 +11,16 @@ function normalizeOptionalNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function validatePayload(payload: Partial<PropertyPayload>) {
+  if (payload.latitude !== undefined && (Number(payload.latitude) < -90 || Number(payload.latitude) > 90)) return 'Latitude must be between -90 and 90';
+  if (payload.longitude !== undefined && (Number(payload.longitude) < -180 || Number(payload.longitude) > 180)) return 'Longitude must be between -180 and 180';
+  if (payload.modelUrl?.trim() && !/\.(glb|gltf)(?:$|[?#])/i.test(payload.modelUrl.trim())) return 'Model URL must point to a .glb or .gltf file';
+  const positiveValues = [payload.buildingArea, payload.buildingHeight, payload.floorHeight, payload.footprintWidth, payload.footprintDepth, payload.cameraAltitude, payload.cameraRange];
+  if (positiveValues.some((value) => value !== undefined && Number(value) <= 0)) return 'Dimensions and camera distances must be positive';
+  if (payload.floorCount !== undefined && (!Number.isInteger(Number(payload.floorCount)) || Number(payload.floorCount) < 1)) return 'Floors must be a positive integer';
+  return null;
+}
+
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
   const session = await requireAdminSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -33,6 +43,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { slug } = await params;
     const payload = (await request.json()) as Partial<PropertyPayload>;
+    const validationError = validatePayload(payload);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     await connectToDatabase();
 
     const mapsCoordinates = payload.googleMapsUrl ? parseGoogleMapsUrl(payload.googleMapsUrl) : null;
@@ -63,7 +75,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       viewerRealismMode: payload.viewerRealismMode ?? undefined,
           latitude: normalizeOptionalNumber(payload.latitude) ?? mapsCoordinates?.lat,
           longitude: normalizeOptionalNumber(payload.longitude) ?? mapsCoordinates?.lng,
-          viewerMode: payload.viewerMode ?? 'google_3d_maps',
+          viewerMode: payload.viewerMode ?? (payload.modelUrl ? 'standalone_model' : 'parametric_fallback'),
           cameraAltitude: normalizeOptionalNumber(payload.cameraAltitude) ?? 300,
           cameraTilt: normalizeOptionalNumber(payload.cameraTilt) ?? 65,
           cameraHeading: normalizeOptionalNumber(payload.cameraHeading) ?? 0,

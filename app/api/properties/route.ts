@@ -12,6 +12,12 @@ function validatePayload(payload: Partial<PropertyPayload>) {
   if (!payload.title?.trim()) return 'Title is required';
   if (!payload.description?.trim()) return 'Description is required';
   if (!payload.images || !Array.isArray(payload.images.gallery) || !Array.isArray(payload.images.aerial)) return 'Invalid images payload';
+  if (payload.latitude !== undefined && (Number(payload.latitude) < -90 || Number(payload.latitude) > 90)) return 'Latitude must be between -90 and 90';
+  if (payload.longitude !== undefined && (Number(payload.longitude) < -180 || Number(payload.longitude) > 180)) return 'Longitude must be between -180 and 180';
+  if (payload.modelUrl?.trim() && !/\.(glb|gltf)(?:$|[?#])/i.test(payload.modelUrl.trim())) return 'Model URL must point to a .glb or .gltf file';
+  const positiveValues = [payload.buildingArea, payload.buildingHeight, payload.floorHeight, payload.footprintWidth, payload.footprintDepth, payload.cameraAltitude, payload.cameraRange];
+  if (positiveValues.some((value) => value !== undefined && Number(value) <= 0)) return 'Dimensions and camera distances must be positive';
+  if (payload.floorCount !== undefined && (!Number.isInteger(Number(payload.floorCount)) || Number(payload.floorCount) < 1)) return 'Floors must be a positive integer';
   return null;
 }
 
@@ -74,7 +80,7 @@ export async function POST(request: NextRequest) {
       viewerRealismMode: payload.viewerRealismMode ?? undefined,
       latitude,
       longitude,
-      viewerMode: payload.viewerMode ?? 'google_3d_maps',
+      viewerMode: payload.viewerMode ?? (payload.modelUrl ? 'standalone_model' : 'parametric_fallback'),
       cameraAltitude: normalizeOptionalNumber(payload.cameraAltitude) ?? 300,
       cameraTilt: normalizeOptionalNumber(payload.cameraTilt) ?? 65,
       cameraHeading: normalizeOptionalNumber(payload.cameraHeading) ?? 0,

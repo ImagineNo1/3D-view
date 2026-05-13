@@ -69,3 +69,26 @@ Generated outputs are written under `tools/auto-reconstruct/output/`:
 - `roads.json`
 - `footprints_with_height.json`
 - `scene.json`
+
+## 3D real-estate viewer architecture
+
+The public QR property page uses a layered viewer so the page never depends on a single 3D provider:
+
+- **Real-world digital twin** (`real_world_digital_twin`): tries to load a Google photorealistic 3D map context when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is configured, flies to the saved latitude/longitude, adds a property marker, and attempts a model overlay when `modelUrl` is available.
+- **Standalone uploaded model** (`standalone_model`): loads a public `.glb` or `.gltf` URL in the internal Three.js viewer, centers it, and scales it against the property dimensions.
+- **Generated building fallback** (`parametric_fallback`): creates a textured procedural building from footprint width/depth, height, floors, floor height, rotation, facade images, and optional aerial ground image.
+
+Required optional environment variables:
+
+```bash
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
+NEXT_PUBLIC_CESIUM_ION_TOKEN=
+```
+
+`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` enables the real-world 3D context. `NEXT_PUBLIC_CESIUM_ION_TOKEN` is reserved for a Cesium Ion deployment path; if provider keys, coverage, or bundles are unavailable, the app automatically falls back to the internal Three.js viewer.
+
+Known limitations:
+
+- A Google Maps URL or latitude/longitude alone cannot generate an exact 3D model of a specific building.
+- Real-world city 3D depends on provider coverage, browser support, and API configuration.
+- Best property-specific accuracy requires a custom GLB/GLTF model or a high-quality reconstruction source.

@@ -29,7 +29,7 @@ export interface IProperty {
   cameraTilt?: number;
   cameraHeading?: number;
   cameraRange?: number;
-  viewerMode?: 'three_procedural' | 'google_3d_maps' | 'cesium_google_3d_tiles';
+  viewerMode?: 'three_procedural' | 'google_3d_maps' | 'cesium_google_3d_tiles' | 'real_world_digital_twin' | 'standalone_model' | 'parametric_fallback';
   slug: string;
   qrCodeDataUrl: string;
   publicUrl: string;
@@ -65,7 +65,7 @@ const PropertySchema = new Schema<IProperty>(
     cameraTilt: { type: Number, default: 65 },
     cameraHeading: { type: Number, default: 0 },
     cameraRange: { type: Number, default: 300 },
-    viewerMode: { type: String, enum: ['three_procedural', 'google_3d_maps', 'cesium_google_3d_tiles'], default: 'google_3d_maps' },
+    viewerMode: { type: String, enum: ['three_procedural', 'google_3d_maps', 'cesium_google_3d_tiles', 'real_world_digital_twin', 'standalone_model', 'parametric_fallback'], default: 'parametric_fallback' },
     slug: { type: String, required: true, unique: true, index: true },
     qrCodeDataUrl: { type: String, required: true },
     publicUrl: { type: String, required: true }

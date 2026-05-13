@@ -1,45 +1,19 @@
+import { isValidCoordinates, parseCoordinatesFromGoogleMapsUrl } from '@/components/estate-3d/geoUtils';
+
 export type ParsedGoogleMaps = {
   lat: number;
   lng: number;
 };
 
-const COORDINATE_REGEX = /(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)/;
-
-const isValidCoordinate = (lat: number, lng: number) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+const isValidCoordinate = (lat: number, lng: number) => isValidCoordinates(lat, lng);
 
 const GOOGLE_STATIC_SIZE = '1280x1280';
 
 export function parseGoogleMapsUrl(url: string): ParsedGoogleMaps | null {
-  const trimmedUrl = url.trim();
-  if (!trimmedUrl) return null;
-
-  const tryExtract = (candidate: string): ParsedGoogleMaps | null => {
-    const match = candidate.match(COORDINATE_REGEX);
-    if (!match) return null;
-    const lat = Number(match[1]);
-    const lng = Number(match[2]);
-    return isValidCoordinate(lat, lng) ? { lat, lng } : null;
-  };
-
-  try {
-    const parsed = new URL(trimmedUrl);
-    const query = parsed.searchParams.get('q') || parsed.searchParams.get('query') || '';
-    const candidates = [parsed.href, parsed.pathname, query];
-    for (const c of candidates) {
-      const m = c.match(/!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/);
-      if (m) {
-        const lat = Number(m[1]); const lng = Number(m[2]);
-        if (isValidCoordinate(lat, lng)) return { lat, lng };
-      }
-      const found = tryExtract(c);
-      if (found) return found;
-    }
-  } catch {
-    return tryExtract(trimmedUrl);
-  }
-
-  return tryExtract(trimmedUrl);
+  const parsed = parseCoordinatesFromGoogleMapsUrl(url);
+  return parsed ? { lat: parsed.latitude, lng: parsed.longitude } : null;
 }
+
 
 export function buildMapEmbedUrl({ lat, lng }: ParsedGoogleMaps): string {
   return `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
