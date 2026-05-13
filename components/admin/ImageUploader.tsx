@@ -68,7 +68,10 @@ export function ImageUploader({
   errorById = {},
   onUrlValidationError
 }: Props) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const ui = locale === 'fa'
+    ? { addImage: 'افزودن تصویر', enterUrl: 'نشانی تصویر را وارد کنید', previewUnavailable: 'پیش‌نمایش در دسترس نیست', uploading: 'در حال بارگذاری…', success: '✓ موفق', error: '✕ خطا', pending: 'در انتظار' }
+    : { addImage: 'Add Image', enterUrl: 'Enter image URL', previewUnavailable: 'Preview unavailable', uploading: 'Uploading…', success: '✓ Success', error: '✕ Error', pending: 'Pending' };
   const [urlInput, setUrlInput] = useState('');
   const [brokenPreviewById, setBrokenPreviewById] = useState<Record<string, boolean>>({});
 
@@ -130,11 +133,11 @@ export function ImageUploader({
           type="url"
           value={urlInput}
           onChange={(event) => setUrlInput(event.target.value)}
-          placeholder="Enter image URL"
+          placeholder={ui.enterUrl}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <button type="button" onClick={addUrlImage} className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white">
-          Add Image
+          {ui.addImage}
         </button>
       </div>
 
@@ -146,7 +149,7 @@ export function ImageUploader({
             <article key={item.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="relative h-28 w-full">
                 {brokenPreviewById[item.id] ? (
-                  <div className="grid h-full place-items-center bg-slate-100 px-2 text-center text-[11px] text-slate-500">Preview unavailable</div>
+                  <div className="grid h-full place-items-center bg-slate-100 px-2 text-center text-[11px] text-slate-500">{ui.previewUnavailable}</div>
                 ) : (
                   <Image src={item.url} alt={t.admin.preview} fill className="object-cover" sizes="(max-width: 768px) 50vw, 20vw" unoptimized onError={() => setBrokenPreviewById((prev) => ({ ...prev, [item.id]: true }))} />
                 )}
@@ -157,7 +160,7 @@ export function ImageUploader({
                   <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }} />
                 </div>
                 <div className="flex items-center justify-between gap-1 text-[11px]">
-                  <span className="truncate text-slate-500">{status === 'uploading' ? 'Uploading…' : status === 'success' ? '✓ Success' : status === 'error' ? '✕ Error' : 'Pending'}</span>
+                  <span className="truncate text-slate-500">{status === 'uploading' ? ui.uploading : status === 'success' ? ui.success : status === 'error' ? ui.error : ui.pending}</span>
                   <span className="text-slate-500">{t.admin.progress}: {Math.round(progress)}٪</span>
                 </div>
                 {status === 'error' && errorById[item.id] && <p className="text-[11px] text-red-700">{errorById[item.id]}</p>}

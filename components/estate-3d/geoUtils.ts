@@ -59,3 +59,16 @@ export function metersToLongitudeDegrees(meters: number, latitude: number) {
 export function metersToLatitudeDegrees(meters: number) {
   return meters / 110_540;
 }
+
+export function latLngToXZ(latitude: number, longitude: number, centerLatitude: number, centerLongitude: number) {
+  const z = -(latitude - centerLatitude) * 110_540;
+  const x = (longitude - centerLongitude) * 111_320 * Math.cos((centerLatitude * Math.PI) / 180);
+  return { x, z };
+}
+
+export function xzToLatLng(x: number, z: number, centerLatitude: number, centerLongitude: number) {
+  const latitude = centerLatitude - z / 110_540;
+  const denominator = 111_320 * Math.cos((centerLatitude * Math.PI) / 180);
+  const longitude = centerLongitude + (denominator === 0 ? 0 : x / denominator);
+  return { latitude, longitude };
+}

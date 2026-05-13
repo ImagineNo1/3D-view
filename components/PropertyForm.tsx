@@ -108,7 +108,10 @@ async function uploadImageWithProgress(
 
 export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Props) {
   const existingFacades = editing?.images.gallery || [];
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const ui = locale === 'fa'
+    ? { propertyNameHint: 'نام عمومی پروژه یا ملک در صفحه کیوآر نمایش داده می‌شود.', mapHint: 'پیوند دقیق نقشه یا مختصات خام را وارد کنید تا طول و عرض جغرافیایی خودکار تکمیل شود.', buildingArea: 'متراژ بنا (متر مربع)', buildingAreaHint: 'زیربنا یا برآورد سطح اشغال برای مقیاس سه‌بعدی.', buildingHeight: 'ارتفاع ساختمان (متر)', buildingHeightHint: 'ارتفاع کل ساختمان به متر.', floors: 'تعداد طبقات', floorsHint: 'تعداد طبقات برای مقیاس و خطوط راهنمای طبقات.', floorHeight: 'ارتفاع هر طبقه (متر)', floorHeightHint: 'میانگین ارتفاع هر طبقه.', rotation: 'چرخش (درجه)', rotationHint: 'چرخش دستی ساختمان در صحنه سه‌بعدی.', footprintWidth: 'عرض محدوده (متر)', footprintWidthHint: 'عرض واقعی ساختمان روی زمین.', footprintDepth: 'عمق محدوده (متر)', footprintDepthHint: 'عمق واقعی ساختمان روی زمین.', modelUrl: 'نشانی مدل سه‌بعدی (اختیاری)', modelUrlHint: 'فایل آماده با پسوند glb یا gltf.', viewerHeading: 'نمایشگر عمومی سه‌بعدی', viewerDesc: 'انتخاب کنید بازدیدکنندگان کیوآر ملک را با بافت شهری واقعی، مدل سه‌بعدی آماده یا ساختمان تولیدی ببینند.', viewerWarn: 'مختصات به‌تنهایی مدل دقیق ساختمان را نمی‌سازد؛ برای بیشترین دقت از مدل glb یا gltf استفاده کنید.', viewerMode: 'حالت نمایشگر', realWorld: 'دوقلوی دیجیتال واقعی', modelMode: 'مدل سه‌بعدی بارگذاری‌شده', generatedMode: 'ساختمان تولیدی جایگزین', viewerModeHint: 'حالت واقعی در صورت تنظیم کلید نقشه فعال می‌شود؛ حالت مدل از glb/gltf استفاده می‌کند؛ حالت تولیدی از ابعاد و تصاویر نما ساخته می‌شود.', lat: 'عرض جغرافیایی', lng: 'طول جغرافیایی', cameraAltitude: 'ارتفاع دوربین', cameraTilt: 'زاویه دوربین', cameraHeading: 'جهت دوربین', cameraRange: 'فاصله دوربین', facadeFront: 'نمای جلو', facadeBack: 'نمای پشت', facadeLeft: 'نمای چپ', facadeRight: 'نمای راست', facadeFrontHint: 'تصویر نمای جلو را بارگذاری کنید', facadeBackHint: 'تصویر نمای پشت را بارگذاری کنید', facadeLeftHint: 'تصویر نمای چپ را بارگذاری کنید', facadeRightHint: 'تصویر نمای راست را بارگذاری کنید', aerialImages: 'تصاویر هوایی', aerialHint: 'یک تصویر هوایی اصلی استفاده کنید؛ در صورت نبود تصویر، بافت ماهواره‌ای یا زمین تولیدی نمایش داده می‌شود.', positive: 'باید عددی مثبت باشد.', latError: 'عرض جغرافیایی باید بین منفی ۹۰ تا ۹۰ باشد.', lngError: 'طول جغرافیایی باید بین منفی ۱۸۰ تا ۱۸۰ باشد.', floorError: 'تعداد طبقات باید عدد صحیح مثبت باشد.', modelError: 'نشانی مدل باید به فایل glb یا gltf اشاره کند.' }
+    : { propertyNameHint: 'Public project/property name shown on the QR landing page.', mapHint: 'Exact Google Maps link or raw coordinates for auto-filling latitude and longitude.', buildingArea: 'Building area (m²)', buildingAreaHint: 'Total building area or footprint estimate used for 3D sizing.', buildingHeight: 'Building height (m)', buildingHeightHint: 'Total height of the building in meters.', floors: 'Floors', floorsHint: 'Number of floors used for scale and floor guide lines.', floorHeight: 'Floor height (m)', floorHeightHint: 'Average height of each floor.', rotation: 'Rotation (deg)', rotationHint: 'Manual building rotation in the 3D scene.', footprintWidth: 'Footprint width (m)', footprintWidthHint: 'Real building width on the ground.', footprintDepth: 'Footprint depth (m)', footprintDepthHint: 'Real building depth on the ground.', modelUrl: 'Model URL (.glb/.gltf optional)', modelUrlHint: 'Optional ready-made 3D model file.', viewerHeading: '3D Public Viewer', viewerDesc: 'Choose how QR visitors see the property: real-world context, a supplied GLB/GLTF model, or a generated building from dimensions and facade images.', viewerWarn: 'Coordinates alone cannot generate an exact building model; use a custom GLB/GLTF for highest property-specific accuracy.', viewerMode: 'Viewer mode', realWorld: 'Real-world digital twin', modelMode: 'Standalone uploaded model', generatedMode: 'Generated building fallback', viewerModeHint: 'Real-world uses map context when configured, model mode uses .glb/.gltf, generated fallback uses dimensions and facade images.', lat: 'Latitude', lng: 'Longitude', cameraAltitude: 'Camera altitude', cameraTilt: 'Camera tilt', cameraHeading: 'Camera heading', cameraRange: 'Camera range', facadeFront: 'Facade Front', facadeBack: 'Facade Back', facadeLeft: 'Facade Left', facadeRight: 'Facade Right', facadeFrontHint: 'Upload front facade image', facadeBackHint: 'Upload back facade image', facadeLeftHint: 'Upload left facade image', facadeRightHint: 'Upload right facade image', aerialImages: 'Aerial Images', aerialHint: 'Use one primary aerial image; if empty, satellite/procedural ground appears.', positive: 'must be a positive number.', latError: 'Latitude must be between -90 and 90.', lngError: 'Longitude must be between -180 and 180.', floorError: 'Floors must be a positive integer.', modelError: 'Model URL must point to a .glb or .gltf file.' };
   const [title, setTitle] = useState(editing?.title || '');
   const [description, setDescription] = useState(editing?.description || '');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(editing?.googleMapsUrl || '');
@@ -216,27 +219,27 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
   const validateForm = () => {
     const lat = parseOptionalNumber(latitude) ?? parsedFromUrl?.lat;
     const lng = parseOptionalNumber(longitude) ?? parsedFromUrl?.lng;
-    if (lat !== undefined && (lat < -90 || lat > 90)) return 'Latitude must be between -90 and 90.';
-    if (lng !== undefined && (lng < -180 || lng > 180)) return 'Longitude must be between -180 and 180.';
+    if (lat !== undefined && (lat < -90 || lat > 90)) return ui.latError;
+    if (lng !== undefined && (lng < -180 || lng > 180)) return ui.lngError;
 
     const positiveFields: Array<[string, string]> = [
-      [buildingArea, 'Building area'],
-      [buildingHeight, 'Building height'],
-      [floorHeight, 'Floor height'],
-      [footprintWidth, 'Footprint width'],
-      [footprintDepth, 'Footprint depth'],
-      [cameraAltitude, 'Camera altitude'],
-      [cameraRange, 'Camera range']
+      [buildingArea, ui.buildingArea],
+      [buildingHeight, ui.buildingHeight],
+      [floorHeight, ui.floorHeight],
+      [footprintWidth, ui.footprintWidth],
+      [footprintDepth, ui.footprintDepth],
+      [cameraAltitude, '{ui.cameraAltitude}'],
+      [cameraRange, '{ui.cameraRange}']
     ];
     for (const [value, label] of positiveFields) {
       const parsed = parseOptionalNumber(value);
-      if (value.trim() && (parsed === undefined || parsed <= 0)) return `${label} must be a positive number.`;
+      if (value.trim() && (parsed === undefined || parsed <= 0)) return `${label} ${ui.positive}`;
     }
 
     const floors = parseOptionalNumber(floorCount);
-    if (floorCount.trim() && (!floors || floors < 1 || !Number.isInteger(floors))) return 'Floors must be a positive integer.';
+    if (floorCount.trim() && (!floors || floors < 1 || !Number.isInteger(floors))) return ui.floorError;
     const trimmedModelUrl = modelUrl.trim();
-    if (trimmedModelUrl && !/\.(glb|gltf)(?:$|[?#])/i.test(trimmedModelUrl)) return 'Model URL must point to a .glb or .gltf file.';
+    if (trimmedModelUrl && !/\.(glb|gltf)(?:$|[?#])/i.test(trimmedModelUrl)) return ui.modelError;
     return null;
   };
 
@@ -292,11 +295,11 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">{t.admin.title}</span><span className="helper-text">Public project/property name shown on the QR landing page.</span>
+          <span className="font-medium">{t.admin.title}</span><span className="helper-text">{ui.propertyNameHint}</span>
           <input required value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.admin.title} className="w-full rounded-xl border px-3 py-2 text-right" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">{t.admin.mapsUrl}</span><span className="helper-text">Exact Google Maps link for opening the property location.</span>
+          <span className="font-medium">{t.admin.mapsUrl}</span><span className="helper-text">{ui.mapHint}</span>
           <input type="text" value={googleMapsUrl} onChange={(event) => { const v = event.target.value; setGoogleMapsUrl(v); const parsed = parseGoogleMapsUrl(v); if (parsed) { setLatitude(String(parsed.lat)); setLongitude(String(parsed.lng)); } }} placeholder={t.admin.mapsUrl} className="w-full rounded-xl border px-3 py-2 text-right" />
           {parsedFromUrl && <p className="text-xs text-emerald-700">{t.admin.coordsParsed}: {parsedFromUrl.lat}, {parsedFromUrl.lng}</p>}
         </label>
@@ -304,101 +307,101 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
 
       <div className="grid gap-4 md:grid-cols-3">
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Building area (m²)</span><span className="helper-text">Total building area or footprint estimate used for 3D sizing.</span>
+          <span className="font-medium">{ui.buildingArea}</span><span className="helper-text">{ui.buildingAreaHint}</span>
           <input type="number" min="1" step="0.1" value={buildingArea} onChange={(event) => setBuildingArea(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Building height (m)</span><span className="helper-text">Total height of the building in meters.</span>
+          <span className="font-medium">{ui.buildingHeight}</span><span className="helper-text">{ui.buildingHeightHint}</span>
           <input type="number" min="1" step="0.1" value={buildingHeight} onChange={(event) => setBuildingHeight(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Floors</span><span className="helper-text">Number of floors used for scale and floor guide lines.</span>
+          <span className="font-medium">{ui.floors}</span><span className="helper-text">{ui.floorsHint}</span>
           <input type="number" min="1" step="1" value={floorCount} onChange={(event) => setFloorCount(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Floor height (m)</span><span className="helper-text">Average height of each floor.</span>
+          <span className="font-medium">{ui.floorHeight}</span><span className="helper-text">{ui.floorHeightHint}</span>
           <input type="number" min="0" step="0.1" value={floorHeight} onChange={(event) => setFloorHeight(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Rotation (deg)</span><span className="helper-text">Manual building rotation in the 3D scene.</span>
+          <span className="font-medium">{ui.rotation}</span><span className="helper-text">{ui.rotationHint}</span>
           <input type="number" step="0.1" value={rotation} onChange={(event) => setRotation(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
 
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Footprint width (m)</span><span className="helper-text">Real building width on the ground.</span>
+          <span className="font-medium">{ui.footprintWidth}</span><span className="helper-text">{ui.footprintWidthHint}</span>
           <input type="number" min="1" step="0.1" value={footprintWidth} onChange={(event) => setFootprintWidth(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Footprint depth (m)</span><span className="helper-text">Real building depth on the ground.</span>
+          <span className="font-medium">{ui.footprintDepth}</span><span className="helper-text">{ui.footprintDepthHint}</span>
           <input type="number" min="1" step="0.1" value={footprintDepth} onChange={(event) => setFootprintDepth(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm text-slate-700 md:col-span-2">
-          <span className="font-medium">Model URL (.glb/.gltf optional)</span><span className="helper-text">Optional ready-made 3D model file.</span>
+          <span className="font-medium">{ui.modelUrl}</span><span className="helper-text">{ui.modelUrlHint}</span>
           <input type="url" value={modelUrl} onChange={(event) => setModelUrl(event.target.value)} className="w-full rounded-xl border px-3 py-2" />
         </label>
       </div>
 
 
       <section className="rounded-xl border border-slate-200 p-4">
-        <h3 className="text-lg font-semibold text-slate-900">3D Public Viewer</h3>
-        <p className="mt-1 text-xs text-slate-600">Choose how QR visitors see the property: real-world context, a supplied GLB/GLTF model, or a generated building from dimensions and facade images.</p>
-        <p className="mt-1 text-xs text-amber-700">Coordinates alone cannot generate an exact building model; use a custom GLB/GLTF for highest property-specific accuracy.</p>
+        <h3 className="text-lg font-semibold text-slate-900">{ui.viewerHeading}</h3>
+        <p className="mt-1 text-xs text-slate-600">{ui.viewerDesc}</p>
+        <p className="mt-1 text-xs text-amber-700">{ui.viewerWarn}</p>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <label className="text-sm">Viewer mode<select value={viewerMode} onChange={(e)=>setViewerMode(e.target.value as PropertyViewerMode)} className="mt-1 w-full rounded border px-2 py-2"><option value="real_world_digital_twin">Real-world digital twin</option><option value="standalone_model">Standalone uploaded model</option><option value="parametric_fallback">Generated building fallback</option></select><span className="mt-1 block text-xs text-slate-500">Real-world uses Google/Cesium-style 3D when configured, model mode uses .glb/.gltf, generated fallback uses dimensions and facade images.</span></label>
-          <label className="text-sm">Latitude<input value={latitude} onChange={(e)=>setLatitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Longitude<input value={longitude} onChange={(e)=>setLongitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Camera altitude<input value={cameraAltitude} onChange={(e)=>setCameraAltitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Camera tilt<input value={cameraTilt} onChange={(e)=>setCameraTilt(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Camera heading<input value={cameraHeading} onChange={(e)=>setCameraHeading(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Camera range<input value={cameraRange} onChange={(e)=>setCameraRange(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{ui.viewerMode}<select value={viewerMode} onChange={(e)=>setViewerMode(e.target.value as PropertyViewerMode)} className="mt-1 w-full rounded border px-2 py-2"><option value="real_world_digital_twin">{ui.realWorld}</option><option value="standalone_model">{ui.modelMode}</option><option value="parametric_fallback">{ui.generatedMode}</option></select><span className="mt-1 block text-xs text-slate-500">{ui.viewerModeHint}</span></label>
+          <label className="text-sm">{ui.lat}<input value={latitude} onChange={(e)=>setLatitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{ui.lng}<input value={longitude} onChange={(e)=>setLongitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{ui.cameraAltitude}<input value={cameraAltitude} onChange={(e)=>setCameraAltitude(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{ui.cameraTilt}<input value={cameraTilt} onChange={(e)=>setCameraTilt(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{ui.cameraHeading}<input value={cameraHeading} onChange={(e)=>setCameraHeading(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{ui.cameraRange}<input value={cameraRange} onChange={(e)=>setCameraRange(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
           <label className="text-sm md:col-span-2">Optional modelUrl<input type="url" value={modelUrl} onChange={(event) => setModelUrl(event.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
         </div>
       </section>
 
       <details className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium">Building Appearance</summary><p className="field-help mt-1">Controls how the building facade and roof are rendered.</p>
+        <summary className="cursor-pointer font-medium">{locale === 'fa' ? 'ظاهر ساختمان' : 'Building Appearance'}</summary><p className="field-help mt-1">{locale === 'fa' ? 'نحوه نمایش نما و بام ساختمان را کنترل می‌کند.' : 'Controls how the building facade and roof are rendered.'}</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="text-sm">Facade Mode
-            <select value={facadeMode} onChange={(e)=>setFacadeMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="hybrid">hybrid</option><option value="image">image</option><option value="procedural">procedural</option></select>
+          <label className="text-sm">{locale === 'fa' ? 'حالت نما' : 'Facade Mode'}
+            <select value={facadeMode} onChange={(e)=>setFacadeMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="hybrid">{locale === 'fa' ? 'ترکیبی' : 'hybrid'}</option><option value="image">{locale === 'fa' ? 'تصویر' : 'image'}</option><option value="procedural">{locale === 'fa' ? 'تولیدی' : 'procedural'}</option></select>
           </label>
-          <label className="text-sm">Roof Type
-            <select value={roofType} onChange={(e)=>setRoofType(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="parapet">parapet</option><option value="flat">flat</option><option value="gable">gable</option></select>
+          <label className="text-sm">{locale === 'fa' ? 'نوع بام' : 'Roof Type'}
+            <select value={roofType} onChange={(e)=>setRoofType(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="parapet">{locale === 'fa' ? 'جان‌پناه' : 'parapet'}</option><option value="flat">{locale === 'fa' ? 'تخت' : 'flat'}</option><option value="gable">{locale === 'fa' ? 'شیروانی' : 'gable'}</option></select>
           </label>
         </div>
       </details>
 
       
       <details className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium">Real Aerial Context</summary><p className="field-help mt-1">Use a real aerial image as the ground/environment for the public 3D page.</p>
+        <summary className="cursor-pointer font-medium">{locale === 'fa' ? 'بافت هوایی واقعی' : 'Real Aerial Context'}</summary><p className="field-help mt-1">{locale === 'fa' ? 'از تصویر هوایی واقعی به‌عنوان زمین و محیط صفحه عمومی سه‌بعدی استفاده می‌شود.' : 'Use a real aerial image as the ground/environment for the public 3D page.'}</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="text-sm">Scene mode<select value={sceneMode} onChange={(e)=>setSceneMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="procedural">procedural</option><option value="real_aerial">real_aerial</option><option value="real_aerial_with_osm">real_aerial_with_osm</option><option value="mixed">mixed</option></select></label>
-          <label className="text-sm">Real aerial image URL<input value={aerialImageUrl} onChange={(e)=>setAerialImageUrl(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Aerial source<select value={aerialSource} onChange={(e)=>setAerialSource(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="other">other</option><option value="drone">drone</option><option value="licensed_orthophoto">licensed_orthophoto</option><option value="google_maps_screenshot">google_maps_screenshot</option><option value="osm">osm</option></select></label>
-          <label className="text-sm">Attribution<input value={aerialAttribution} onChange={(e)=>setAerialAttribution(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Real-world image width (m)<input value={aerialWidthMeters} onChange={(e)=>setAerialWidthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Real-world image depth (m)<input value={aerialDepthMeters} onChange={(e)=>setAerialDepthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Scale: meters per pixel<input value={metersPerPixel} onChange={(e)=>setMetersPerPixel(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm">Aerial image rotation (deg)<input value={aerialRotationDeg} onChange={(e)=>setAerialRotationDeg(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
-          <label className="text-sm md:col-span-2"><input type="checkbox" checked={allowProceduralFallback} onChange={(e)=>setAllowProceduralFallback(e.target.checked)} className="mr-2"/>Allow procedural fallback</label>
+          <label className="text-sm">{locale === 'fa' ? 'حالت صحنه' : 'Scene mode'}<select value={sceneMode} onChange={(e)=>setSceneMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="procedural">{locale === 'fa' ? 'تولیدی' : 'procedural'}</option><option value="real_aerial">{locale === 'fa' ? 'هوایی واقعی' : 'real_aerial'}</option><option value="real_aerial_with_osm">{locale === 'fa' ? 'هوایی واقعی با نقشه' : 'real_aerial_with_osm'}</option><option value="mixed">{locale === 'fa' ? 'ترکیبی' : 'mixed'}</option></select></label>
+          <label className="text-sm">{locale === 'fa' ? 'نشانی تصویر هوایی' : 'Real aerial image URL'}<input value={aerialImageUrl} onChange={(e)=>setAerialImageUrl(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{locale === 'fa' ? 'منبع تصویر هوایی' : 'Aerial source'}<select value={aerialSource} onChange={(e)=>setAerialSource(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="other">{locale === 'fa' ? 'سایر' : 'other'}</option><option value="drone">{locale === 'fa' ? 'پهپاد' : 'drone'}</option><option value="licensed_orthophoto">{locale === 'fa' ? 'ارتوفوتوی مجاز' : 'licensed_orthophoto'}</option><option value="google_maps_screenshot">{locale === 'fa' ? 'تصویر نقشه گوگل' : 'google_maps_screenshot'}</option><option value="osm">{locale === 'fa' ? 'نقشه باز' : 'osm'}</option></select></label>
+          <label className="text-sm">{locale === 'fa' ? 'اعتبار منبع' : 'Attribution'}<input value={aerialAttribution} onChange={(e)=>setAerialAttribution(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{locale === 'fa' ? 'عرض واقعی تصویر (متر)' : 'Real-world image width (m)'}<input value={aerialWidthMeters} onChange={(e)=>setAerialWidthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{locale === 'fa' ? 'عمق واقعی تصویر (متر)' : 'Real-world image depth (m)'}<input value={aerialDepthMeters} onChange={(e)=>setAerialDepthMeters(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{locale === 'fa' ? 'مقیاس: متر بر پیکسل' : 'Scale: meters per pixel'}<input value={metersPerPixel} onChange={(e)=>setMetersPerPixel(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm">{locale === 'fa' ? 'چرخش تصویر هوایی (درجه)' : 'Aerial image rotation (deg)'}<input value={aerialRotationDeg} onChange={(e)=>setAerialRotationDeg(e.target.value)} className="mt-1 w-full rounded border px-2 py-2"/></label>
+          <label className="text-sm md:col-span-2"><input type="checkbox" checked={allowProceduralFallback} onChange={(e)=>setAllowProceduralFallback(e.target.checked)} className="mr-2"/>{locale === 'fa' ? 'اجازه جایگزین تولیدی' : 'Allow procedural fallback'}</label>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 md:col-span-2">
-            <p><b>Scene mode:</b> {sceneMode}</p>
-            <p><b>Aerial image:</b> {aerialImageUrl ? 'configured' : 'missing'}</p>
-            <p><b>Scale:</b> {(aerialWidthMeters && aerialDepthMeters) || metersPerPixel ? 'configured' : 'missing'}</p>
-            <p><b>Building footprint:</b> {editing?.aerialContext?.buildingFootprintImagePoints ? 'configured' : 'missing'}</p>
-            <p><b>Facade photos:</b> {[facadeFrontImages[0],facadeBackImages[0],facadeLeftImages[0],facadeRightImages[0]].filter(Boolean).length}/4</p>
+            <p><b>{locale === 'fa' ? 'حالت صحنه' : 'Scene mode'}:</b> {sceneMode}</p>
+            <p><b>{locale === 'fa' ? 'تصویر هوایی:' : 'Aerial image:'}</b> {aerialImageUrl ? (locale === 'fa' ? 'تنظیم شده' : 'configured') : (locale === 'fa' ? 'ثبت نشده' : 'missing')}</p>
+            <p><b>{locale === 'fa' ? 'مقیاس:' : 'Scale:'}</b> {(aerialWidthMeters && aerialDepthMeters) || metersPerPixel ? (locale === 'fa' ? 'تنظیم شده' : 'configured') : (locale === 'fa' ? 'ثبت نشده' : 'missing')}</p>
+            <p><b>{locale === 'fa' ? 'محدوده ساختمان:' : 'Building footprint:'}</b> {editing?.aerialContext?.buildingFootprintImagePoints ? (locale === 'fa' ? 'تنظیم شده' : 'configured') : (locale === 'fa' ? 'ثبت نشده' : 'missing')}</p>
+            <p><b>{locale === 'fa' ? 'تصاویر نما:' : 'Facade photos:'}</b> {[facadeFrontImages[0],facadeBackImages[0],facadeLeftImages[0],facadeRightImages[0]].filter(Boolean).length}/4</p>
           </div>
-          {aerialSource==='google_maps_screenshot' ? <p className="text-xs text-amber-700 md:col-span-2">Make sure you have the rights to use this imagery in the public property page and catalogue.</p> : null}
+          {aerialSource==='google_maps_screenshot' ? <p className="text-xs text-amber-700 md:col-span-2">{locale === 'fa' ? 'از مجوز استفاده از این تصویر در صفحه عمومی و کاتالوگ مطمئن شوید.' : 'Make sure you have the rights to use this imagery in the public property page and catalogue.'}</p> : null}
         </div>
       </details>
 
       <details className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium">Site Context</summary><p className="field-help mt-1">Controls procedural or map-based surroundings used as fallback or enhancement.</p>
+        <summary className="cursor-pointer font-medium">{locale === 'fa' ? 'بافت سایت' : 'Site Context'}</summary><p className="field-help mt-1">{locale === 'fa' ? 'محیط پیرامونی تولیدی یا مبتنی بر نقشه را برای جایگزین یا بهبود کنترل می‌کند.' : 'Controls procedural or map-based surroundings used as fallback or enhancement.'}</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="text-sm">Context Mode
-            <select value={contextMode} onChange={(e)=>setContextMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="manual">manual</option><option value="hybrid">hybrid</option><option value="osm">osm</option></select>
+          <label className="text-sm">{locale === 'fa' ? 'حالت بافت' : 'Context Mode'}
+            <select value={contextMode} onChange={(e)=>setContextMode(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="manual">{locale === 'fa' ? 'دستی' : 'manual'}</option><option value="hybrid">{locale === 'fa' ? 'ترکیبی' : 'hybrid'}</option><option value="osm">{locale === 'fa' ? 'نقشه باز' : 'osm'}</option></select>
           </label>
-          <label className="text-sm">Environment Preset
-            <select value={environmentPreset} onChange={(e)=>setEnvironmentPreset(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="urban_street">urban_street</option><option value="dense_urban">dense_urban</option><option value="suburban">suburban</option><option value="villa">villa</option><option value="commercial_strip">commercial_strip</option></select>
+          <label className="text-sm">{locale === 'fa' ? 'پیش‌تنظیم محیط' : 'Environment Preset'}
+            <select value={environmentPreset} onChange={(e)=>setEnvironmentPreset(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-2"><option value="urban_street">{locale === 'fa' ? 'خیابان شهری' : 'urban_street'}</option><option value="dense_urban">{locale === 'fa' ? 'شهری متراکم' : 'dense_urban'}</option><option value="suburban">{locale === 'fa' ? 'حومه' : 'suburban'}</option><option value="villa">{locale === 'fa' ? 'ویلا' : 'villa'}</option><option value="commercial_strip">{locale === 'fa' ? 'تجاری خطی' : 'commercial_strip'}</option></select>
           </label>
         </div>
       </details>
@@ -410,8 +413,8 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
 
       <div className="grid gap-4 xl:grid-cols-2">
         <ImageUploader
-          label="Facade Front"
-          helperText="Upload front facade image"
+          label={ui.facadeFront}
+          helperText={ui.facadeFrontHint}
           value={facadeFrontImages}
           onChange={setFacadeFrontImages}
           progressById={progressById}
@@ -421,8 +424,8 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
           multiple={false}
         />
         <ImageUploader
-          label="Facade Back"
-          helperText="Upload back facade image"
+          label={ui.facadeBack}
+          helperText={ui.facadeBackHint}
           value={facadeBackImages}
           onChange={setFacadeBackImages}
           progressById={progressById}
@@ -432,8 +435,8 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
           multiple={false}
         />
         <ImageUploader
-          label="Facade Left"
-          helperText="Upload left facade image"
+          label={ui.facadeLeft}
+          helperText={ui.facadeLeftHint}
           value={facadeLeftImages}
           onChange={setFacadeLeftImages}
           progressById={progressById}
@@ -443,8 +446,8 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
           multiple={false}
         />
         <ImageUploader
-          label="Facade Right"
-          helperText="Upload right facade image"
+          label={ui.facadeRight}
+          helperText={ui.facadeRightHint}
           value={facadeRightImages}
           onChange={setFacadeRightImages}
           progressById={progressById}
@@ -454,8 +457,8 @@ export function PropertyForm({ onCreated, editing, onUpdated, onCancelEdit }: Pr
           multiple={false}
         />
         <ImageUploader
-          label="Aerial Images"
-          helperText="Use one primary aerial image. If empty, the viewer falls back to a neutral/procedural ground only when fallback is enabled."
+          label={ui.aerialImages}
+          helperText={ui.aerialHint}
           value={aerialImages}
           onChange={setAerialImages}
           progressById={progressById}

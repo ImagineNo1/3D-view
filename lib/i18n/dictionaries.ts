@@ -1,6 +1,6 @@
 export type Locale = 'en' | 'fa';
 
-export const DEFAULT_LOCALE: Locale = 'en';
+export const DEFAULT_LOCALE: Locale = 'fa';
 
 export const dictionaries = {
   en: {
@@ -117,6 +117,9 @@ export const dictionaries = {
       markerEntry: 'Main entry',
       markerBuilding: 'Building',
       markerParking: 'Parking'
+    },
+    viewer: {
+      realWorldMode: 'Real-world mode', modelMode: 'Model mode', generatedMode: 'Generated fallback', loading: 'Loading 3D property...', reset: 'Reset', topView: 'Top view', buildingView: 'Building view', autoRotate: 'Auto-rotate', stopRotate: 'Stop rotate', fullscreen: 'Fullscreen', mode2d: '2D', mode3d: '3D', intensity: '3D intensity', drawFootprint: 'Draw footprint', finishFootprint: 'Finish footprint', clearFootprint: 'Clear footprint', clickedCoordinates: 'Clicked coordinates', fallbackModel: 'The uploaded model could not be loaded, so a generated building is shown instead.', missingMapKey: 'Map key is not configured; the internal 3D viewer is shown.', realWorldNote: 'Real-world city context is active. Coverage and detail depend on provider availability.'
     },
     footer: {
       tagline: 'Crafted for premium property storytelling.'
@@ -236,6 +239,9 @@ export const dictionaries = {
       markerEntry: 'ورودی اصلی',
       markerBuilding: 'ساختمان',
       markerParking: 'پارکینگ'
+    },
+    viewer: {
+      realWorldMode: 'حالت دوقلوی شهری', modelMode: 'حالت مدل سه‌بعدی', generatedMode: 'ساختمان تولیدی', loading: 'در حال آماده‌سازی نمایش سه‌بعدی...', reset: 'بازنشانی', topView: 'نمای بالا', buildingView: 'نمای ساختمان', autoRotate: 'چرخش خودکار', stopRotate: 'توقف چرخش', fullscreen: 'تمام‌صفحه', mode2d: 'دوبعدی', mode3d: 'سه‌بعدی', intensity: 'شدت سه‌بعدی', drawFootprint: 'ترسیم محدوده ساختمان', finishFootprint: 'پایان ترسیم', clearFootprint: 'پاک‌کردن محدوده', clickedCoordinates: 'مختصات انتخاب‌شده', fallbackModel: 'مدل بارگذاری‌شده قابل نمایش نبود؛ ساختمان تولیدی نمایش داده شد.', missingMapKey: 'کلید نقشه تنظیم نشده است؛ نمایشگر داخلی سه‌بعدی نمایش داده شد.', realWorldNote: 'بافت شهری واقعی فعال است. کیفیت و پوشش به سرویس‌دهنده وابسته است.'
     },
     footer: {
       tagline: 'طراحی‌شده برای روایت حرفه‌ای پروژه‌های ملکی.'

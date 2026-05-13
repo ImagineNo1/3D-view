@@ -20,6 +20,51 @@ export function resolveBuildingDimensions(config: Estate3DConfig): BuildingDimen
   };
 }
 
+
+function createProceduralGroundTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const gradient = ctx.createLinearGradient(0, 0, 1024, 1024);
+    gradient.addColorStop(0, '#334155');
+    gradient.addColorStop(0.5, '#475569');
+    gradient.addColorStop(1, '#1f2937');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1024, 1024);
+    for (let i = 0; i < 75; i += 1) {
+      ctx.fillStyle = i % 4 === 0 ? 'rgba(148,163,184,0.18)' : 'rgba(15,23,42,0.22)';
+      const x = Math.random() * 1024;
+      const y = Math.random() * 1024;
+      const w = 28 + Math.random() * 120;
+      const h = 20 + Math.random() * 90;
+      ctx.fillRect(x, y, w, h);
+    }
+    ctx.strokeStyle = 'rgba(226,232,240,0.22)';
+    ctx.lineWidth = 10;
+    for (let i = -200; i < 1300; i += 180) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + 260, 1024);
+      ctx.stroke();
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1, 1);
+  return texture;
+}
+
+function googleSatelliteUrl(config: Estate3DConfig) {
+  if (typeof config.latitude !== 'number' || typeof config.longitude !== 'number') return undefined;
+  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (!key) return undefined;
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${config.latitude},${config.longitude}&zoom=19&size=1280x1280&scale=2&maptype=satellite&key=${key}`;
+}
+
 function makeNeutralFacadeMaterial(color = '#cbd5e1') {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: 0.05 });
 }
@@ -140,9 +185,9 @@ export async function createParametricBuilding(config: Estate3DConfig, renderer?
 
 export async function createGround(config: Estate3DConfig, size: number, renderer?: any) {
   const aerialTexture = await loadOptionalTexture(config.aerialImageUrl, renderer);
-  const material = aerialTexture
-    ? new THREE.MeshStandardMaterial({ map: aerialTexture, roughness: 0.95 })
-    : new THREE.MeshStandardMaterial({ color: '#293847', roughness: 0.9 });
+  const satelliteTexture = aerialTexture ? null : await loadOptionalTexture(googleSatelliteUrl(config), renderer);
+  const texture = aerialTexture || satelliteTexture || createProceduralGroundTexture();
+  const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.92, metalness: 0.02 });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
