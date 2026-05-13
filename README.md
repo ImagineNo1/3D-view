@@ -39,7 +39,7 @@ Then login at `/admin/login` and change the credentials in DB if needed.
 - `npm run build`
 - `npm run lint`
 
-## Automatic GIS + CV Urban Reconstruction (Google Maps URL input)
+## Automatic GIS + CV Urban Reconstruction (Map URL / coordinates input)
 
 Implemented files:
 - `tools/auto-reconstruct/backend.js`
@@ -55,7 +55,7 @@ Implemented files:
    - `npm install express canvas`
    - `python3 -m pip install opencv-python numpy`
 2. Set env var:
-   - `export GOOGLE_MAPS_API_KEY=your_key_here`
+   - `export MAPBOX_TOKEN=your_token_here`
 3. Start reconstruction backend:
    - `node tools/auto-reconstruct/backend.js`
 4. POST one input (`googleMapsUrl`) to generate outputs:
@@ -74,21 +74,20 @@ Generated outputs are written under `tools/auto-reconstruct/output/`:
 
 The public QR property page uses a layered viewer so the page never depends on a single 3D provider:
 
-- **Real-world digital twin** (`real_world_digital_twin`): tries to load a Google photorealistic 3D map context when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is configured, flies to the saved latitude/longitude, adds a property marker, and attempts a model overlay when `modelUrl` is available.
+- **Real-world digital twin** (`real_world_digital_twin`): loads a Mapbox GL JS satellite/terrain context when `NEXT_PUBLIC_MAPBOX_TOKEN` is configured, syncs a Three.js building or GLB/GLTF overlay to the map camera, adds property/click markers, and uses uploaded aerial imagery if satellite tiles are unavailable.
 - **Standalone uploaded model** (`standalone_model`): loads a public `.glb` or `.gltf` URL in the internal Three.js viewer, centers it, and scales it against the property dimensions.
 - **Generated building fallback** (`parametric_fallback`): creates a textured procedural building from footprint width/depth, height, floors, floor height, rotation, facade images, and optional aerial ground image.
 
 Required optional environment variables:
 
 ```bash
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
-NEXT_PUBLIC_CESIUM_ION_TOKEN=
+NEXT_PUBLIC_MAPBOX_TOKEN=
 ```
 
-`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` enables the real-world 3D context. `NEXT_PUBLIC_CESIUM_ION_TOKEN` is reserved for a Cesium Ion deployment path; if provider keys, coverage, or bundles are unavailable, the app automatically falls back to the internal Three.js viewer.
+`NEXT_PUBLIC_MAPBOX_TOKEN` enables the Mapbox GL JS real-world context using free-tier compatible satellite, terrain-dem, navigation, sky, and fog APIs. If the token, provider coverage, terrain, or tiles are unavailable, the app falls back to uploaded aerial imagery and/or the internal Three.js viewer.
 
 Known limitations:
 
-- A Google Maps URL or latitude/longitude alone cannot generate an exact 3D model of a specific building.
-- Real-world city 3D depends on provider coverage, browser support, and API configuration.
+- A map URL or latitude/longitude alone cannot generate an exact 3D model of a specific building.
+- Real-world terrain and satellite detail depend on Mapbox coverage, browser support, and API configuration.
 - Best property-specific accuracy requires a custom GLB/GLTF model or a high-quality reconstruction source.

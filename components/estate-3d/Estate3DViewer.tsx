@@ -7,9 +7,9 @@ import { normalizeViewerMode } from './types';
 import { isLikelyGltfUrl } from './ModelLoader';
 import { ThreeStandaloneViewer } from './ThreeStandaloneViewer';
 
-const CesiumDigitalTwinViewer = dynamic(() => import('./CesiumDigitalTwinViewer').then((mod) => mod.CesiumDigitalTwinViewer), {
+const MapboxDigitalTwinViewer = dynamic(() => import('./MapboxDigitalTwinViewer').then((mod) => mod.MapboxDigitalTwinViewer), {
   ssr: false,
-  loading: () => <div className="grid min-h-[620px] place-items-center rounded-3xl bg-slate-950 text-sm text-slate-100">Loading digital twin viewer…</div>
+  loading: () => <div className="grid min-h-[620px] place-items-center rounded-3xl bg-slate-950 text-sm text-slate-100">Loading Mapbox digital twin viewer…</div>
 });
 
 type Props = { config: Estate3DConfig };
@@ -26,7 +26,7 @@ export function Estate3DViewer({ config }: Props) {
   const handleFallback = useCallback((reason: string) => setFallbackReason(reason), []);
 
   if (mode === 'real_world_digital_twin' && !fallbackReason) {
-    return <CesiumDigitalTwinViewer config={config} onFallback={handleFallback} />;
+    return <MapboxDigitalTwinViewer config={config} onFallback={handleFallback} />;
   }
 
   const standaloneMode: ViewerMode = mode === 'standalone_model' ? 'standalone_model' : 'parametric_fallback';

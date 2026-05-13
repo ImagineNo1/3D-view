@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "mapbox-gl": "^3.23.1",
     "mongoose": "^8.13.2",
     "next": "^16.0.0",
     "qrcode": "^1.5.4",

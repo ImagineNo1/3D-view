@@ -12,7 +12,7 @@ export const dictionaries = {
       remove: 'Remove',
       view: 'View',
       close: 'Close',
-      openInMaps: 'Open in Google Maps',
+      openInMaps: 'Open in map',
       copied: 'Copied!',
       copyLink: 'Copy link'
     },
@@ -69,12 +69,12 @@ export const dictionaries = {
       logout: 'Logout',
       title: 'Title',
       description: 'Description',
-      mapsUrl: 'Google Maps URL',
+      mapsUrl: 'Map URL / coordinates',
       coordsParsed: 'Coordinates parsed',
       gallery: 'Gallery Images',
       aerial: 'Aerial Images',
       uploadHintGallery: 'Add multiple images. Reorder by drag & drop. Changes save only when you submit the form.',
-      uploadHintAerial: 'Use one primary aerial image. If empty, the viewer falls back to Google Maps satellite imagery.',
+      uploadHintAerial: 'Use one primary aerial image. If Mapbox satellite tiles are unavailable, this image is used as the ground fallback.',
       chooseImages: 'Choose images',
       chooseImage: 'Choose image',
       savedImage: 'Saved image',
@@ -119,7 +119,7 @@ export const dictionaries = {
       markerParking: 'Parking'
     },
     viewer: {
-      realWorldMode: 'Real-world mode', modelMode: 'Model mode', generatedMode: 'Generated fallback', loading: 'Loading 3D property...', reset: 'Reset', topView: 'Top view', buildingView: 'Building view', autoRotate: 'Auto-rotate', stopRotate: 'Stop rotate', fullscreen: 'Fullscreen', mode2d: '2D', mode3d: '3D', intensity: '3D intensity', drawFootprint: 'Draw footprint', finishFootprint: 'Finish footprint', clearFootprint: 'Clear footprint', clickedCoordinates: 'Clicked coordinates', fallbackModel: 'The uploaded model could not be loaded, so a generated building is shown instead.', missingMapKey: 'Map key is not configured; the internal 3D viewer is shown.', realWorldNote: 'Real-world city context is active. Coverage and detail depend on provider availability.'
+      realWorldMode: 'Real-world mode', mapboxMode: 'Mapbox Earth mode', modelMode: 'Model mode', generatedMode: 'Generated fallback', loading: 'Loading 3D property...', reset: 'Reset', topView: 'Top view', buildingView: 'Building view', autoRotate: 'Auto-rotate', stopRotate: 'Stop rotate', fullscreen: 'Fullscreen', mode2d: '2D', mode3d: '3D', intensity: '3D intensity', drawFootprint: 'Draw footprint', finishFootprint: 'Finish footprint', clearFootprint: 'Clear footprint', clickedCoordinates: 'Clicked coordinates', fallbackModel: 'The uploaded model could not be loaded, so a generated building is shown instead.', missingMapKey: 'Map key is not configured; the internal 3D viewer is shown.', realWorldNote: 'Mapbox satellite, terrain, sky, and fog are active. Coverage and elevation depend on provider availability.', satelliteFallbackNote: 'Satellite tiles reported an issue; uploaded aerial imagery is being used where available.', flatTerrainNote: 'Terrain elevation is unavailable here, so the map continues on a flat plane.'
     },
     footer: {
       tagline: 'Crafted for premium property storytelling.'
@@ -191,12 +191,12 @@ export const dictionaries = {
       logout: 'خروج',
       title: 'عنوان',
       description: 'توضیحات',
-      mapsUrl: 'پیوند نقشه گوگل',
+      mapsUrl: 'پیوند نقشه / مختصات',
       coordsParsed: 'مختصات شناسایی شد',
       gallery: 'تصاویر گالری',
       aerial: 'تصاویر هوایی',
       uploadHintGallery: 'چند تصویر اضافه کنید. امکان جابه‌جایی با کشیدن و رها کردن وجود دارد. تغییرات هنگام ذخیره فرم ثبت می‌شوند.',
-      uploadHintAerial: 'یک تصویر هوایی اصلی انتخاب کنید. در صورت نبود تصویر، نمای ماهواره‌ای گوگل استفاده می‌شود.',
+      uploadHintAerial: 'یک تصویر هوایی اصلی انتخاب کنید. اگر کاشی‌های ماهواره‌ای مپ‌باکس در دسترس نباشند، این تصویر به‌عنوان زمین جایگزین استفاده می‌شود.',
       chooseImages: 'انتخاب تصاویر',
       chooseImage: 'انتخاب تصویر',
       savedImage: 'تصویر ذخیره‌شده',
@@ -241,7 +241,7 @@ export const dictionaries = {
       markerParking: 'پارکینگ'
     },
     viewer: {
-      realWorldMode: 'حالت دوقلوی شهری', modelMode: 'حالت مدل سه‌بعدی', generatedMode: 'ساختمان تولیدی', loading: 'در حال آماده‌سازی نمایش سه‌بعدی...', reset: 'بازنشانی', topView: 'نمای بالا', buildingView: 'نمای ساختمان', autoRotate: 'چرخش خودکار', stopRotate: 'توقف چرخش', fullscreen: 'تمام‌صفحه', mode2d: 'دوبعدی', mode3d: 'سه‌بعدی', intensity: 'شدت سه‌بعدی', drawFootprint: 'ترسیم محدوده ساختمان', finishFootprint: 'پایان ترسیم', clearFootprint: 'پاک‌کردن محدوده', clickedCoordinates: 'مختصات انتخاب‌شده', fallbackModel: 'مدل بارگذاری‌شده قابل نمایش نبود؛ ساختمان تولیدی نمایش داده شد.', missingMapKey: 'کلید نقشه تنظیم نشده است؛ نمایشگر داخلی سه‌بعدی نمایش داده شد.', realWorldNote: 'بافت شهری واقعی فعال است. کیفیت و پوشش به سرویس‌دهنده وابسته است.'
+      realWorldMode: 'حالت دوقلوی شهری', mapboxMode: 'حالت زمین مپ‌باکس', modelMode: 'حالت مدل سه‌بعدی', generatedMode: 'ساختمان تولیدی', loading: 'در حال آماده‌سازی نمایش سه‌بعدی...', reset: 'بازنشانی', topView: 'نمای بالا', buildingView: 'نمای ساختمان', autoRotate: 'چرخش خودکار', stopRotate: 'توقف چرخش', fullscreen: 'تمام‌صفحه', mode2d: 'دوبعدی', mode3d: 'سه‌بعدی', intensity: 'شدت سه‌بعدی', drawFootprint: 'ترسیم محدوده ساختمان', finishFootprint: 'پایان ترسیم', clearFootprint: 'پاک‌کردن محدوده', clickedCoordinates: 'مختصات انتخاب‌شده', fallbackModel: 'مدل بارگذاری‌شده قابل نمایش نبود؛ ساختمان تولیدی نمایش داده شد.', missingMapKey: 'کلید نقشه تنظیم نشده است؛ نمایشگر داخلی سه‌بعدی نمایش داده شد.', realWorldNote: 'نمای ماهواره‌ای، زمین واقعی، آسمان و مه مپ‌باکس فعال است. پوشش و ارتفاع به سرویس‌دهنده وابسته است.', satelliteFallbackNote: 'کاشی‌های ماهواره‌ای دچار مشکل شدند؛ در صورت وجود، تصویر هوایی بارگذاری‌شده استفاده می‌شود.', flatTerrainNote: 'ارتفاع زمین در این محدوده در دسترس نیست؛ نقشه روی صفحه تخت ادامه می‌یابد.'
     },
     footer: {
       tagline: 'طراحی‌شده برای روایت حرفه‌ای پروژه‌های ملکی.'

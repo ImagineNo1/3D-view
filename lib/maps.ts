@@ -6,17 +6,15 @@ export type ParsedGoogleMaps = {
 };
 
 const isValidCoordinate = (lat: number, lng: number) => isValidCoordinates(lat, lng);
-
-const GOOGLE_STATIC_SIZE = '1280x1280';
+const STATIC_SIZE = '1280x1280@2x';
 
 export function parseGoogleMapsUrl(url: string): ParsedGoogleMaps | null {
   const parsed = parseCoordinatesFromGoogleMapsUrl(url);
   return parsed ? { lat: parsed.latitude, lng: parsed.longitude } : null;
 }
 
-
 export function buildMapEmbedUrl({ lat, lng }: ParsedGoogleMaps): string {
-  return `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`;
 }
 
 export function getSatelliteImage(lat?: number, lng?: number, zoom = 19): string | null {
@@ -24,10 +22,8 @@ export function getSatelliteImage(lat?: number, lng?: number, zoom = 19): string
     return null;
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${GOOGLE_STATIC_SIZE}&maptype=satellite&scale=2`;
-  }
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  if (!token) return null;
 
-  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${GOOGLE_STATIC_SIZE}&maptype=satellite&scale=2&key=${apiKey}`;
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${lng},${lat},${zoom},0/${STATIC_SIZE}?access_token=${encodeURIComponent(token)}`;
 }
